@@ -311,7 +311,7 @@ function BarChart({ rows, metric, label }: { rows: DailyReportSummaryRow[]; metr
 }
 
 function effectiveNewCalls(report: DailyReport) {
-  return Math.max(0, report.calls_new_count - report.calls_new_no_answer_count - report.calls_new_refusal_count - report.calls_new_email_count);
+  return Math.max(0, report.calls_new_count - report.calls_new_no_answer_count - report.calls_new_refusal_count - report.calls_new_email_count - report.calls_new_not_metal_count);
 }
 
 function reportManagerName(report: DailyReport) {
