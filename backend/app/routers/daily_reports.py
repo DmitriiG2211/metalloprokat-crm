@@ -21,8 +21,15 @@ def report_query(user: User):
 
 
 def report_totals(report: DailyReport) -> dict[str, int]:
+    new_client_calls = max(
+        0,
+        report.calls_new_count
+        - report.calls_new_no_answer_count
+        - report.calls_new_refusal_count
+        - report.calls_new_email_count,
+    )
     return {
-        "total_calls": report.calls_existing_count + report.calls_new_count + report.calls_regular_count,
+        "total_calls": new_client_calls,
         "total_no_answer": report.calls_existing_no_answer_count + report.calls_new_no_answer_count,
         "total_refusals": report.calls_existing_refusal_count + report.calls_new_refusal_count,
         "total_email_followups": report.calls_existing_email_count + report.calls_new_email_count,

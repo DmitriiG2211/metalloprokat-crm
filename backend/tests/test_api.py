@@ -125,5 +125,5 @@ def test_daily_report_flow_and_summary():
     admin = token("admin", "admin123")
     summary = client.get("/api/daily-reports/summary?date_from=2026-06-01&date_to=2026-06-30", headers={"Authorization": f"Bearer {admin}"}).json()
     manager103 = next(row for row in summary if row["login"] == "manager103")
-    assert manager103["total_calls"] == 30
+    assert manager103["total_calls"] == report_payload["calls_new_count"] - report_payload["calls_new_no_answer_count"] - report_payload["calls_new_refusal_count"] - report_payload["calls_new_email_count"]
     assert manager103["invoice_count"] == 4

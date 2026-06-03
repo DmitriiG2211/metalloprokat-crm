@@ -310,6 +310,10 @@ function BarChart({ rows, metric, label }: { rows: DailyReportSummaryRow[]; metr
   );
 }
 
+function effectiveNewCalls(report: DailyReport) {
+  return Math.max(0, report.calls_new_count - report.calls_new_no_answer_count - report.calls_new_refusal_count - report.calls_new_email_count);
+}
+
 function reportManagerName(report: DailyReport) {
   return report.manager?.full_name || report.manager?.login || `ID ${report.manager_id}`;
 }
@@ -349,7 +353,7 @@ function DetailRow({ label, count, details }: { label: string; count: number; de
 function ReportDetailDialog({ report, onClose }: { report: DailyReport | null; onClose: () => void }) {
   if (!report) return null;
 
-  const totalCalls = report.calls_existing_count + report.calls_new_count + report.calls_regular_count;
+  const totalCalls = effectiveNewCalls(report);
 
   return (
     <Dialog open={Boolean(report)} onClose={onClose} fullWidth maxWidth="md" PaperProps={{ className: "glass-surface", sx: { borderRadius: "8px" } }}>
@@ -365,6 +369,7 @@ function ReportDetailDialog({ report, onClose }: { report: DailyReport | null; o
         <Stack spacing={2}>
           <Box className="report-detail-kpis">
             <Chip className="glass-button" label={`Звонков: ${totalCalls}`} />
+            <Chip className="glass-button" label={`Постоянные клиенты: ${report.calls_regular_count}`} />
             <Chip className="glass-button" label={`Выставлено счетов: ${report.invoice_count}`} />
             <Chip className="glass-button" label={`Счета под оплату: ${report.invoices_pending_payment_count}`} />
           </Box>
@@ -430,6 +435,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
 
   const sortedSummary = useMemo(() => [...summary].sort((a, b) => b.total_calls - a.total_calls), [summary]);
   const totalCalls = summary.reduce((sum, row) => sum + row.total_calls, 0);
+  const totalRegularCalls = summary.reduce((sum, row) => sum + row.calls_regular, 0);
   const totalInvoices = summary.reduce((sum, row) => sum + row.invoice_count, 0);
   const totalPaid = summary.reduce((sum, row) => sum + row.paid_invoice_count, 0);
 
@@ -449,6 +455,12 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
             Всего звонков
           </Typography>
           <Typography variant="h4">{totalCalls}</Typography>
+        </Paper>
+        <Paper className="glass-surface metric-card" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
+          <Typography variant="body2" color="text.secondary">
+            Постоянные клиенты
+          </Typography>
+          <Typography variant="h4">{totalRegularCalls}</Typography>
         </Paper>
         <Paper className="glass-surface metric-card" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
           <Typography variant="body2" color="text.secondary">
@@ -478,14 +490,10 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
           <TableHead>
             <TableRow>
               <TableCell>Менеджер</TableCell>
-              <TableCell>Отчетов</TableCell>
               <TableCell>Звонков</TableCell>
-              <TableCell>Новые</TableCell>
-              <TableCell>Постоянные</TableCell>
-              <TableCell>Счетов</TableCell>
+              <TableCell>Выставлено счетов</TableCell>
               <TableCell>Оплачено</TableCell>
-              <TableCell>Заявок</TableCell>
-              <TableCell>Под оплату</TableCell>
+              <TableCell>Реклама</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -497,14 +505,10 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
                     {row.manager_number || row.login}
                   </Typography>
                 </TableCell>
-                <TableCell>{row.reports_count}</TableCell>
                 <TableCell>{row.total_calls}</TableCell>
-                <TableCell>{row.calls_new}</TableCell>
-                <TableCell>{row.calls_regular}</TableCell>
                 <TableCell>{row.invoice_count}</TableCell>
                 <TableCell>{row.paid_invoice_count}</TableCell>
-                <TableCell>{row.requests_received_count}</TableCell>
-                <TableCell>{row.invoices_pending_payment_count}</TableCell>
+                <TableCell>{row.advertising_total}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -548,7 +552,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
               >
                 <TableCell>{report.report_date}</TableCell>
                 <TableCell>{report.manager?.full_name || report.manager?.login}</TableCell>
-                <TableCell>{report.calls_existing_count + report.calls_new_count + report.calls_regular_count}</TableCell>
+                <TableCell>{effectiveNewCalls(report)}</TableCell>
                 <TableCell>{report.invoice_count}</TableCell>
                 <TableCell sx={{ whiteSpace: "normal", minWidth: 180 }}>{report.invoice_numbers}</TableCell>
                 <TableCell>{report.paid_invoice_count}</TableCell>
