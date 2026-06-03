@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: metalloprokat-crm
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: metalloprokat-crm-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 720
+      - key: FRONTEND_DIST_PATH
+        value: /app/frontend_dist
+      - key: UPLOAD_MAX_MB
+        value: 25
+
+databases:
+  - name: metalloprokat-crm-db
+    databaseName: crm
+    user: crm
+    plan: free
