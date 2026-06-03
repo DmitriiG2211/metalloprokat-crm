@@ -482,7 +482,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
         <BarChart rows={sortedSummary} metric="accounts_total" label="Счета" />
       </Box>
 
-      <Paper className="glass-surface" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
+      <Paper className="glass-surface table-scroll" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
         <Typography fontWeight={900} sx={{ mb: 1.5 }}>
           Итоги по менеджерам
         </Typography>
