@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "CRM Металлопрокат"
     database_url: str = "sqlite:///./crm_local.db"
+    database_schema: str = ""
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 60 * 12
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost"

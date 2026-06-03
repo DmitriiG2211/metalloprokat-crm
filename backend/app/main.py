@@ -42,6 +42,9 @@ def ensure_lightweight_schema_updates() -> None:
 
 @app.on_event("startup")
 def startup() -> None:
+    if settings.database_schema:
+        with engine.begin() as connection:
+            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{settings.database_schema}"'))
     Base.metadata.create_all(bind=engine)
     ensure_lightweight_schema_updates()
     with SessionLocal() as db:

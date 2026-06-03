@@ -13,7 +13,12 @@ if database_url.startswith("postgres://"):
 elif database_url.startswith("postgresql://") and not database_url.startswith("postgresql+"):
     database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
-connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+if database_url.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+elif settings.database_schema:
+    connect_args = {"options": f"-csearch_path={settings.database_schema},public"}
+else:
+    connect_args = {}
 engine = create_engine(database_url, pool_pre_ping=True, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
