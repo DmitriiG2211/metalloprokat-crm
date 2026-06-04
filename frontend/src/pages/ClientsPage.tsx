@@ -127,7 +127,7 @@ function ContactCell({ value, kind, onSave }: { value?: string | null; kind: "ph
         {hidden.length > 0 ? `еще ${hidden.length}` : "ред."}
       </Button>
       <Popover open={open} anchorEl={anchor} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
-        <Stack spacing={1} sx={{ p: 1.5, width: 360 }}>
+        <Stack spacing={1} sx={{ p: 1.5, width: { xs: "calc(100dvw - 32px)", sm: 360 } }}>
           {items.length > 0 && (
             <Stack spacing={0.5}>
               {items.map((item) => (
@@ -179,7 +179,7 @@ function CommentCell({ value, onSave }: { value?: string | null; onSave: (value:
         ред.
       </Button>
       <Popover open={open} anchorEl={anchor} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
-        <Stack spacing={1} sx={{ p: 1.5, width: 520 }}>
+        <Stack spacing={1} sx={{ p: 1.5, width: { xs: "calc(100dvw - 32px)", sm: 520 } }}>
           <TextField label="Комментарий" value={draft} onChange={(event) => setDraft(event.target.value)} multiline minRows={6} size="small" />
           <Button variant="contained" onClick={commit}>
             Добавить в историю
@@ -195,6 +195,84 @@ function ExcelCell({ children, width }: { children: ReactNode; width: number | s
     <TableCell sx={{ width, maxWidth: width, p: 0.75, verticalAlign: "top" }}>
       {children}
     </TableCell>
+  );
+}
+
+function MobileClientCard({
+  client,
+  statuses,
+  saveField,
+  addComment
+}: {
+  client: Client;
+  statuses: Status[];
+  saveField: (client: Client, patch: ClientPatch) => void;
+  addComment: (id: number, comment: string) => void;
+}) {
+  return (
+    <Paper className="glass-surface mobile-client-card" elevation={0}>
+      <Stack spacing={1.25}>
+        <Box className="mobile-card-head">
+          <EditableCell width="100%" value={client.company_name} onSave={(value) => saveField(client, { company_name: value })} />
+          <Typography variant="caption" sx={{ fontWeight: 900, color: "text.secondary" }}>
+            {client.manager?.manager_number || client.manager?.login || "-"}
+          </Typography>
+        </Box>
+
+        <Box className="mobile-card-grid">
+          <Box>
+            <Typography className="mobile-field-label" variant="caption">ФИО</Typography>
+            <EditableCell width="100%" value={client.contact_person} onSave={(value) => saveField(client, { contact_person: value })} />
+          </Box>
+          <Box>
+            <Typography className="mobile-field-label" variant="caption">Статус</Typography>
+            <TextField
+              className="excel-input mobile-select"
+              select
+              variant="standard"
+              value={client.status_id || ""}
+              onChange={(event) => saveField(client, { status_id: Number(event.target.value) })}
+              fullWidth
+              InputProps={{ disableUnderline: true }}
+            >
+              <MenuItem value="">Без статуса</MenuItem>
+              {statuses.map((status) => (
+                <MenuItem key={status.id} value={status.id}>
+                  <StatusChip status={status} />
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+        </Box>
+
+        <Box className="mobile-card-grid">
+          <Box>
+            <Typography className="mobile-field-label" variant="caption">Телефон</Typography>
+            <ContactCell value={client.phone} kind="phone" onSave={(value) => saveField(client, { phone: value })} />
+          </Box>
+          <Box>
+            <Typography className="mobile-field-label" variant="caption">Почта</Typography>
+            <ContactCell value={client.email} kind="email" onSave={(value) => saveField(client, { email: value })} />
+          </Box>
+        </Box>
+
+        <Box>
+          <Typography className="mobile-field-label" variant="caption">Комментарий</Typography>
+          <CommentCell value={client.last_comment} onSave={(value) => addComment(client.id, value)} />
+        </Box>
+
+        <Box className="mobile-card-grid dates">
+          <Box>
+            <Typography className="mobile-field-label" variant="caption">Звонок</Typography>
+            <EditableCell width="100%" type="date" value={client.last_call_date || ""} onSave={(value) => saveField(client, { last_call_date: value })} />
+          </Box>
+          <Box>
+            <Typography className="mobile-field-label" variant="caption">Перезвон</Typography>
+            <EditableCell width="100%" type="date" value={client.next_call_date || ""} onSave={(value) => saveField(client, { next_call_date: value })} />
+          </Box>
+        </Box>
+      </Stack>
+    </Paper>
   );
 }
 
@@ -392,6 +470,23 @@ export function ClientsPage() {
           </TableBody>
         </Table>
       </Paper>
+
+      <Stack className="mobile-list mobile-client-list" spacing={1.25}>
+        {data?.items.map((client) => (
+          <MobileClientCard
+            key={client.id}
+            client={client}
+            statuses={statuses}
+            saveField={saveField}
+            addComment={(id, comment) => addComment.mutate({ id, comment })}
+          />
+        ))}
+        {!isFetching && data?.items.length === 0 && (
+          <Paper className="glass-surface mobile-empty-state" elevation={0}>
+            <Typography>Клиенты не найдены</Typography>
+          </Paper>
+        )}
+      </Stack>
 
       <Stack className="pagination-bar" direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
         <Typography variant="body2">Всего: {data?.total ?? 0}</Typography>

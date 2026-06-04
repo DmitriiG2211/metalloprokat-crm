@@ -581,6 +581,45 @@ a {
   -webkit-backdrop-filter: blur(5px);
 }
 
+.mobile-list {
+  display: none;
+}
+
+.mobile-client-list {
+  container: inline-size / mobile-clients;
+}
+
+.mobile-client-card {
+  padding: 12px;
+  border-radius: 8px !important;
+}
+
+.mobile-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 10px;
+  align-items: start;
+}
+
+.mobile-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mobile-field-label {
+  display: block;
+  margin-block-end: 4px;
+  color: var(--app-muted);
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.mobile-empty-state {
+  padding: 18px;
+  border-radius: 8px !important;
+}
+
 @supports (background: linear-gradient(in oklab, white, black)) {
   body {
     background:
@@ -642,22 +681,145 @@ a {
     display: none;
   }
 
+  .mobile-list {
+    display: flex;
+  }
+
+  .app-topbar .MuiToolbar-root {
+    min-height: 60px;
+    padding-inline: 10px;
+  }
+
+  .brand-title {
+    font-size: 15px !important;
+    line-height: 1.1 !important;
+  }
+
+  .mobile-menu-button.MuiIconButton-root,
+  .app-topbar .MuiIconButton-root {
+    width: 44px;
+    height: 44px;
+  }
+
+  .app-topbar .MuiChip-root {
+    max-width: 112px;
+  }
+
+  .app-topbar .MuiChip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .app-main {
-    padding: 20px 14px !important;
+    width: 100%;
+    padding: 14px 10px 24px !important;
   }
 
   .page-header {
     align-items: flex-start !important;
     flex-direction: column;
+    gap: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .page-header h4 {
+    font-size: 24px !important;
+  }
+
+  .page-actions {
+    width: 100%;
+  }
+
+  .page-actions .MuiButton-root {
+    min-height: 44px;
+    flex: 1 1 132px;
   }
 
   .filter-grid {
     grid-template-columns: 1fr !important;
   }
 
+  .filter-bar {
+    margin-bottom: 12px !important;
+    padding: 10px !important;
+  }
+
+  .filter-bar .MuiInputBase-root,
+  .mobile-client-card .MuiInputBase-root {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .filter-bar input,
+  .filter-bar textarea,
+  .mobile-client-card input,
+  .mobile-client-card textarea {
+    font-size: 16px !important;
+  }
+
+  .mobile-client-card .excel-input .MuiInputBase-root {
+    padding-inline: 8px;
+    background: rgba(255, 255, 255, 0.38);
+  }
+
+  .mobile-client-card .excel-input input,
+  .mobile-client-card .excel-input textarea {
+    padding: 8px 2px !important;
+  }
+
+  .mobile-client-card .MuiButton-root,
+  .mobile-client-card .MuiIconButton-root {
+    min-height: 44px;
+  }
+
+  .mobile-client-card .MuiIconButton-root {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-client-card .comment-cell {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-client-card .comment-preview {
+    min-height: auto;
+    max-height: none;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+
+  .mobile-client-card .comment-edit-button.MuiButton-root {
+    justify-self: stretch;
+  }
+
+  .pagination-bar {
+    justify-content: center !important;
+    padding-bottom: 28px;
+  }
+
+  .pagination-bar > .MuiTypography-root {
+    width: 100%;
+    text-align: center;
+  }
+
+  .MuiPopover-paper,
+  .MuiDialog-paper {
+    max-width: calc(100dvw - 20px) !important;
+  }
+
+  .MuiDialog-paper {
+    margin: 10px !important;
+  }
+
   .report-line,
   .report-line.compact,
   .report-bar-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container mobile-clients (inline-size < 420px) {
+  .mobile-card-grid {
     grid-template-columns: 1fr;
   }
 }
