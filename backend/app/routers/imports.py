@@ -1,3 +1,6 @@
+import json
+from json import JSONDecodeError
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,12 +28,13 @@ async def confirm(
     user: User = Depends(require_roles(Role.admin, Role.director)),
     db: Session = Depends(get_db),
 ):
-    import json
-
     if not db.get(User, assigned_manager_id):
         raise HTTPException(404, "Менеджер не найден")
     df = await read_upload(file)
-    mapping = json.loads(mapping_json) if mapping_json else None
+    try:
+        mapping = json.loads(mapping_json) if mapping_json else None
+    except JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Некорректное сопоставление колонок") from exc
     job = import_dataframe(db, df, file.filename or "file", user, assigned_manager_id, mapping)
     db.commit()
     return ImportResult(
