@@ -40,6 +40,14 @@ const monthStart = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
 };
 
+const managerPalette = ["#087a8b", "#6f5bff", "#d97706", "#16a34a", "#db2777", "#2563eb", "#9333ea", "#0f766e"];
+
+function managerColor(row: DailyReportSummaryRow) {
+  const source = row.manager_number || row.login || String(row.manager_id);
+  const hash = [...source].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return managerPalette[hash % managerPalette.length];
+}
+
 const numericKeys: NumericKey[] = [
   "advertising_city_phone_count",
   "advertising_avito_count",
@@ -291,13 +299,17 @@ function BarChart({ rows, metric, label }: { rows: DailyReportSummaryRow[]; metr
       <Stack spacing={1}>
         {rows.map((row) => {
           const value = Number(row[metric]) || 0;
+          const color = managerColor(row);
           return (
             <Box className="report-bar-row" key={`${row.manager_id}-${String(metric)}`}>
-              <Typography variant="body2" fontWeight={800}>
-                {row.manager_number || row.login}
-              </Typography>
+              <Box className="report-manager-label">
+                <Box className="report-color-dot" sx={{ backgroundColor: color }} />
+                <Typography variant="body2" fontWeight={800}>
+                  {row.manager_number || row.login}
+                </Typography>
+              </Box>
               <Box className="report-bar-track">
-                <Box className="report-bar-fill" sx={{ width: `${Math.max(4, (value / max) * 100)}%` }} />
+                <Box className="report-bar-fill" sx={{ width: `${Math.max(4, (value / max) * 100)}%`, background: `linear-gradient(135deg, ${color}, ${color}cc)` }} />
               </Box>
               <Typography variant="body2" fontWeight={900}>
                 {value}
@@ -311,7 +323,7 @@ function BarChart({ rows, metric, label }: { rows: DailyReportSummaryRow[]; metr
 }
 
 function effectiveNewCalls(report: DailyReport) {
-  return Math.max(0, report.calls_new_count - report.calls_new_no_answer_count - report.calls_new_refusal_count - report.calls_new_email_count - report.calls_new_not_metal_count);
+  return Math.max(0, report.calls_new_count - report.calls_new_no_answer_count);
 }
 
 function reportManagerName(report: DailyReport) {

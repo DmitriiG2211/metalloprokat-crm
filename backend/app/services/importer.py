@@ -93,6 +93,35 @@ def find_duplicate(db: Session, company_name: str, phone: str | None, email: str
     return db.scalars(select(Client).where(Client.deleted_at.is_(None), or_(*conditions))).first()
 
 
+def _safe_raw_data(row: pd.Series) -> dict[str, str | None]:
+    raw_data: dict[str, str | None] = {}
+    for key, value in row.to_dict().items():
+        raw_data[str(key)] = None if pd.isna(value) else str(value)
+    return raw_data
+
+
+def _existing_client_keys(db: Session) -> tuple[set[str], set[str], set[str], set[str]]:
+    rows = db.execute(
+        select(Client.normalized_company_name, Client.normalized_phone, Client.email, Client.website_domain).where(Client.deleted_at.is_(None))
+    ).all()
+    companies: set[str] = set()
+    phones: set[str] = set()
+    emails: set[str] = set()
+    domains: set[str] = set()
+    for company, phone, email, domain in rows:
+        if company:
+            companies.add(company)
+        if phone:
+            phones.add(phone)
+        if email:
+            first_email = str(email).splitlines()[0].lower()
+            if first_email:
+                emails.add(first_email)
+        if domain:
+            domains.add(domain)
+    return companies, phones, emails, domains
+
+
 def import_dataframe(
     db: Session,
     df: pd.DataFrame,
@@ -109,6 +138,11 @@ def import_dataframe(
 
     df = df.dropna(how="all")
     job.total_rows = int(len(df))
+    existing_companies, existing_phones, existing_emails, existing_domains = _existing_client_keys(db)
+    pending_companies: set[str] = set()
+    pending_phones: set[str] = set()
+    pending_emails: set[str] = set()
+    pending_domains: set[str] = set()
 
     for index, row in df.iterrows():
         row_number = int(index) + 2
@@ -116,15 +150,23 @@ def import_dataframe(
         phone_raw = _get_value(row, mapping, "phone")
         if not company and not phone_raw:
             job.skipped_count += 1
-            db.add(ImportError(import_id=job.id, row_number=row_number, error_text="Нет названия компании и телефона", raw_data=row.to_dict()))
+            db.add(ImportError(import_id=job.id, row_number=row_number, error_text="Нет названия компании и телефона", raw_data=_safe_raw_data(row)))
             continue
 
         company_name = str(company or "Без названия").strip()
+        normalized_company = normalize_company(company_name)
         phone = str(phone_raw).strip() if phone_raw else None
         normalized_phone = normalize_phone(phone)
         email = normalize_email(_get_value(row, mapping, "email"))
+        first_email = email.splitlines()[0].lower() if email else None
         website, domain = normalize_website(_get_value(row, mapping, "website"))
-        duplicate = find_duplicate(db, company_name, normalized_phone, email, domain)
+        duplicate = (
+            normalized_company in existing_companies
+            or normalized_company in pending_companies
+            or (normalized_phone and (normalized_phone in existing_phones or normalized_phone in pending_phones))
+            or (first_email and (first_email in existing_emails or first_email in pending_emails))
+            or (domain and (domain in existing_domains or domain in pending_domains))
+        )
         if duplicate:
             job.duplicate_count += 1
             job.skipped_count += 1
@@ -133,7 +175,7 @@ def import_dataframe(
         client = Client(
             manager_id=assigned_manager_id,
             company_name=company_name,
-            normalized_company_name=normalize_company(company_name),
+            normalized_company_name=normalized_company,
             contact_person=str(_get_value(row, mapping, "contact_person") or "").strip() or None,
             phone=phone,
             normalized_phone=normalized_phone,
@@ -146,11 +188,17 @@ def import_dataframe(
             source_import_id=job.id,
         )
         db.add(client)
-        db.flush()
+        pending_companies.add(normalized_company)
+        if normalized_phone:
+            pending_phones.add(normalized_phone)
+        if first_email:
+            pending_emails.add(first_email)
+        if domain:
+            pending_domains.add(domain)
 
         comment = _get_value(row, mapping, "comment")
         if comment:
-            db.add(ClientComment(client_id=client.id, author_id=uploaded_by.id, comment_text=str(comment).strip()))
+            db.add(ClientComment(client=client, author_id=uploaded_by.id, comment_text=str(comment).strip()))
         job.created_count += 1
 
     job.status = "done"

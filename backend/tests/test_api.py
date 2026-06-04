@@ -128,8 +128,5 @@ def test_daily_report_flow_and_summary():
     assert manager103["total_calls"] == (
         report_payload["calls_new_count"]
         - report_payload["calls_new_no_answer_count"]
-        - report_payload["calls_new_refusal_count"]
-        - report_payload["calls_new_email_count"]
-        - report_payload["calls_new_not_metal_count"]
     )
     assert manager103["invoice_count"] == 4

@@ -473,9 +473,25 @@ a {
 
 .report-bar-row {
   display: grid;
-  grid-template-columns: 72px minmax(120px, 1fr) 48px;
+  grid-template-columns: 92px minmax(120px, 1fr) 48px;
   gap: 10px;
   align-items: center;
+}
+
+.report-manager-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-color-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(18, 33, 36, 0.16);
 }
 
 .report-bar-track {
@@ -490,10 +506,9 @@ a {
 .report-bar-fill {
   min-height: 28px;
   border-radius: 7px;
-  background:
-    linear-gradient(135deg, rgba(8, 122, 139, 0.88), rgba(73, 151, 147, 0.8)),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.24), transparent);
-  box-shadow: 0 10px 28px rgba(8, 122, 139, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 10px 28px rgba(8, 122, 139, 0.18);
 }
 
 .clickable-report-row {

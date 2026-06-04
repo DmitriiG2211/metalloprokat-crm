@@ -24,10 +24,7 @@ def report_totals(report: DailyReport) -> dict[str, int]:
     new_client_calls = max(
         0,
         report.calls_new_count
-        - report.calls_new_no_answer_count
-        - report.calls_new_refusal_count
-        - report.calls_new_email_count
-        - report.calls_new_not_metal_count,
+        - report.calls_new_no_answer_count,
     )
     return {
         "total_calls": new_client_calls,
