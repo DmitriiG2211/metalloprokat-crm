@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusChip } from "../components/StatusChip";
@@ -277,6 +278,7 @@ function MobileClientCard({
 }
 
 export function ClientsPage() {
+  const { user } = useOutletContext<{ user: User }>();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -288,7 +290,13 @@ export function ClientsPage() {
   const [form, setForm] = useState({ company_name: "", contact_person: "", phone: "", email: "", website: "", status_id: "", next_call_date: "" });
 
   const { data: statuses = [] } = useQuery({ queryKey: ["statuses"], queryFn: async () => (await api.get<Status[]>("/statuses")).data });
-  const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: async () => (await api.get<User[]>("/users")).data, retry: false });
+  const canSeeManagers = ["admin", "director", "senior_manager"].includes(user.role);
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => (await api.get<User[]>("/users")).data,
+    enabled: canSeeManagers,
+    retry: false
+  });
   const { data, isFetching } = useQuery({
     queryKey: ["clients", page, search, statusId, managerId, nextCallFrom, nextCallTo],
     queryFn: async () =>
