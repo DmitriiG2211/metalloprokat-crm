@@ -8,27 +8,33 @@ import {
   History,
   Logout,
   Menu,
+  Notifications,
   Settings,
   UploadFile
 } from "@mui/icons-material";
 import {
   AppBar,
+  Badge,
   Box,
   Button,
   Chip,
+  Divider,
   Drawer,
   IconButton,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Popover,
   Toolbar,
   Tooltip,
   Typography
 } from "@mui/material";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { User } from "../types";
+import { api } from "../api";
+import { Client, Task, User } from "../types";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 const drawerWidth = 248;
@@ -45,6 +51,111 @@ const menu = [
   { label: "Журнал", path: "/audit", icon: <History />, roles: ["admin", "director"] },
   { label: "Настройки", path: "/settings", icon: <Settings />, roles: ["admin", "director"] }
 ];
+
+const todayIso = () => {
+  const date = new Date();
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 10);
+};
+
+function TodayNotifications({ user }: { user: User }) {
+  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const enabled = user.role === "manager";
+  const today = todayIso();
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["today-notification-tasks", user.id],
+    queryFn: async () => (await api.get<Task[]>("/tasks")).data,
+    enabled,
+    refetchInterval: 60000
+  });
+  const { data: reminders = [] } = useQuery({
+    queryKey: ["today-notification-reminders", user.id],
+    queryFn: async () => (await api.get<Client[]>("/reminders/today")).data,
+    enabled,
+    refetchInterval: 60000
+  });
+  const todayTasks = useMemo(() => tasks.filter((task) => task.deadline === today && !["done", "canceled"].includes(task.status)), [tasks, today]);
+  const count = todayTasks.length + reminders.length;
+  const open = Boolean(anchorEl);
+
+  if (!enabled) return null;
+
+  return (
+    <>
+      <Tooltip title="Уведомления">
+        <IconButton className="glass-button" onClick={(event) => setAnchorEl(event.currentTarget)} sx={{ mr: 1 }}>
+          <Badge badgeContent={count} color="error" overlap="circular">
+            <Notifications />
+          </Badge>
+        </IconButton>
+      </Tooltip>
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        PaperProps={{ className: "glass-surface", sx: { width: 360, maxWidth: "calc(100vw - 24px)", borderRadius: "8px", p: 2 } }}
+      >
+        <Typography variant="subtitle1" sx={{ fontWeight: 900, mb: 1 }}>
+          Сегодня от руководителя
+        </Typography>
+        {count === 0 && (
+          <Typography variant="body2" color="text.secondary">
+            На сегодня задач и напоминаний нет
+          </Typography>
+        )}
+        {todayTasks.length > 0 && (
+          <Box sx={{ display: "grid", gap: 1 }}>
+            <Typography variant="overline" color="text.secondary">
+              Задачи
+            </Typography>
+            {todayTasks.map((task) => (
+              <Box key={task.id} sx={{ borderRadius: "8px", bgcolor: "rgba(255,255,255,0.68)", p: 1.1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                  {task.title}
+                </Typography>
+                {task.description && (
+                  <Typography variant="caption" color="text.secondary">
+                    {task.description}
+                  </Typography>
+                )}
+              </Box>
+            ))}
+          </Box>
+        )}
+        {todayTasks.length > 0 && reminders.length > 0 && <Divider sx={{ my: 1.5 }} />}
+        {reminders.length > 0 && (
+          <Box sx={{ display: "grid", gap: 1 }}>
+            <Typography variant="overline" color="text.secondary">
+              Напоминания
+            </Typography>
+            {reminders.map((client) => (
+              <Box key={client.id} sx={{ borderRadius: "8px", bgcolor: "rgba(255,255,255,0.68)", p: 1.1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                  {client.company_name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {client.phone || "Телефон не указан"}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+        {count > 0 && (
+          <Box sx={{ display: "flex", gap: 1, mt: 1.5 }}>
+            <Button component={RouterLink} to="/tasks" size="small" onClick={() => setAnchorEl(null)}>
+              Задачи
+            </Button>
+            <Button component={RouterLink} to="/reminders" size="small" onClick={() => setAnchorEl(null)}>
+              Напоминания
+            </Button>
+          </Box>
+        )}
+      </Popover>
+    </>
+  );
+}
 
 export function Layout({ user }: { user: User }) {
   const navigate = useNavigate();
@@ -122,6 +233,7 @@ export function Layout({ user }: { user: User }) {
               Сертификаты
             </Button>
           </Box>
+          <TodayNotifications user={user} />
           <Chip label={user.full_name} size="small" className="glass-button" sx={{ mr: 1.5, fontWeight: 800 }} />
           <Tooltip title="Выйти">
             <IconButton className="glass-button" onClick={logout}>
