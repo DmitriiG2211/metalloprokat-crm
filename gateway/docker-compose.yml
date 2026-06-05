@@ -1,0 +1,8 @@
+services:
+  gateway:
+    image: mirror.gcr.io/library/nginx:1.27-alpine
+    container_name: megapolice_gateway
+    restart: always
+    network_mode: host
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro

@@ -14,6 +14,7 @@ import {
 import {
   AppBar,
   Box,
+  Button,
   Chip,
   Drawer,
   IconButton,
@@ -89,6 +90,14 @@ export function Layout({ user }: { user: User }) {
           </ListItemButton>
         ))}
       </List>
+      <Box className="sidebar-app-switcher">
+        <Button className="global-switch-button active" href="/" size="small">
+          CRM
+        </Button>
+        <Button className="global-switch-button" href="/certificates" size="small">
+          Сертификаты
+        </Button>
+      </Box>
     </Box>
   );
 
@@ -104,6 +113,14 @@ export function Layout({ user }: { user: User }) {
             <Typography className="brand-title" variant="h6" sx={{ fontWeight: 900 }}>
               CRM Мегаполис
             </Typography>
+          </Box>
+          <Box className="global-switcher" aria-label="Переключение между разделами">
+            <Button className="global-switch-button active" href="/" size="small">
+              CRM
+            </Button>
+            <Button className="global-switch-button" href="/certificates" size="small">
+              Сертификаты
+            </Button>
           </Box>
           <Chip label={user.full_name} size="small" className="glass-button" sx={{ mr: 1.5, fontWeight: 800 }} />
           <Tooltip title="Выйти">
