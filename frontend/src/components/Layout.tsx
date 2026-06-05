@@ -74,10 +74,10 @@ export function Layout({ user }: { user: User }) {
               mb: 0.75,
               minHeight: 48,
               px: 1.4,
-              transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
+              transition: "background 120ms ease, color 120ms ease",
               "&.Mui-selected": {
                 bgcolor: "rgba(255,255,255,0.74)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92), 0 16px 34px rgba(8,119,238,0.12)",
+                boxShadow: "inset 3px 0 0 rgba(8,119,238,0.42)",
                 color: "primary.dark"
               },
               "&:hover": { bgcolor: "rgba(255,255,255,0.6)" },
@@ -104,7 +104,7 @@ export function Layout({ user }: { user: User }) {
   return (
     <Box className="app-shell" sx={{ display: "flex", minHeight: "100vh" }}>
       <AppBar className="app-topbar" position="fixed" elevation={0} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ bgcolor: "rgba(255,255,255,0.52)", color: "text.primary", backdropFilter: "blur(28px) saturate(1.2)" }}>
+        <Toolbar sx={{ bgcolor: "rgba(255,255,255,0.9)", color: "text.primary" }}>
           <IconButton className="glass-button mobile-menu-button" onClick={() => setMobileOpen(true)} sx={{ mr: 1, display: { md: "none" } }} aria-label="Menu">
             <Menu />
           </IconButton>

@@ -45,8 +45,7 @@ const theme = createTheme(
             borderRadius: 14,
             fontWeight: 800,
             letterSpacing: 0,
-            transition: "transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease",
-            "&:hover": { transform: "translateY(-1px)" },
+            transition: "background 120ms ease, border-color 120ms ease",
             "&:focus-visible": {
               outline: "3px solid rgba(8, 119, 238, 0.32)",
               outlineOffset: 3
@@ -55,16 +54,15 @@ const theme = createTheme(
           contained: {
             color: "#ffffff",
             background: "linear-gradient(135deg, rgba(8,119,238,0.98), rgba(15,156,255,0.94))",
-            boxShadow: "0 18px 38px rgba(8, 119, 238, 0.24), inset 0 1px 0 rgba(255,255,255,0.32)",
+            boxShadow: "0 8px 20px rgba(8, 119, 238, 0.18)",
             "&:hover": {
-              boxShadow: "0 22px 48px rgba(8, 119, 238, 0.30), inset 0 1px 0 rgba(255,255,255,0.4)"
+              boxShadow: "0 10px 24px rgba(8, 119, 238, 0.20)"
             }
           },
           outlined: {
             borderColor: "rgba(255,255,255,0.74)",
-            background: "linear-gradient(145deg, rgba(255,255,255,0.76), rgba(255,255,255,0.46))",
-            backdropFilter: "blur(20px) saturate(1.2)",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.90), 0 12px 30px rgba(30, 57, 63, 0.10)"
+            background: "rgba(255,255,255,0.76)",
+            boxShadow: "0 4px 12px rgba(30, 57, 63, 0.08)"
           }
         }
       },
@@ -73,8 +71,7 @@ const theme = createTheme(
           root: {
             backgroundImage: "none",
             border: "1px solid rgba(255,255,255,0.66)",
-            boxShadow: "0 24px 70px rgba(13, 67, 142, 0.12)",
-            backdropFilter: "blur(26px) saturate(1.16)"
+            boxShadow: "0 10px 28px rgba(13, 67, 142, 0.08)"
           }
         }
       },
@@ -101,8 +98,7 @@ const theme = createTheme(
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            background: "rgba(255,255,255,0.52)",
-            backdropFilter: "blur(30px) saturate(1.18)"
+            background: "rgba(255,255,255,0.92)"
           }
         }
       },
