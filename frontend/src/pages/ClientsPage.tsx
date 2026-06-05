@@ -22,7 +22,7 @@ import {
   Typography
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
@@ -30,6 +30,8 @@ import { StatusChip } from "../components/StatusChip";
 import { Client, Page, Status, User } from "../types";
 
 type ClientPatch = Partial<Pick<Client, "company_name" | "contact_person" | "phone" | "email" | "website" | "status_id" | "last_call_date" | "next_call_date">>;
+
+const CLIENTS_PAGE_SIZE = 50;
 
 const splitContacts = (value?: string | null) =>
   (value || "")
@@ -289,7 +291,11 @@ function MobileClientCard({
 export function ClientsPage() {
   const { user } = useOutletContext<{ user: User }>();
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
+  const pageStorageKey = `crm_clients_page_${user.id}`;
+  const [page, setPage] = useState(() => {
+    const stored = Number(localStorage.getItem(pageStorageKey));
+    return Number.isFinite(stored) && stored > 0 ? stored : 1;
+  });
   const [search, setSearch] = useState("");
   const [statusId, setStatusId] = useState("");
   const [managerId, setManagerId] = useState("");
@@ -297,6 +303,19 @@ export function ClientsPage() {
   const [nextCallTo, setNextCallTo] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ company_name: "", contact_person: "", phone: "", email: "", website: "", status_id: "", next_call_date: "" });
+  const didInitFilters = useRef(false);
+
+  useEffect(() => {
+    localStorage.setItem(pageStorageKey, String(page));
+  }, [page, pageStorageKey]);
+
+  useEffect(() => {
+    if (!didInitFilters.current) {
+      didInitFilters.current = true;
+      return;
+    }
+    setPage(1);
+  }, [search, statusId, managerId, nextCallFrom, nextCallTo]);
 
   const { data: statuses = [] } = useQuery({ queryKey: ["statuses"], queryFn: async () => (await api.get<Status[]>("/statuses")).data });
   const canSeeManagers = ["admin", "director", "senior_manager"].includes(user.role);
@@ -313,7 +332,7 @@ export function ClientsPage() {
         await api.get<Page<Client>>("/clients", {
           params: {
             page,
-            page_size: 25,
+            page_size: CLIENTS_PAGE_SIZE,
             search: search || undefined,
             status_id: statusId || undefined,
             manager_id: managerId || undefined,
@@ -507,7 +526,7 @@ export function ClientsPage() {
 
       <Stack className="pagination-bar" direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
         <Typography variant="body2">Всего: {data?.total ?? 0}</Typography>
-        <Pagination count={Math.max(1, Math.ceil((data?.total ?? 0) / 25))} page={page} onChange={(_, value) => setPage(value)} />
+        <Pagination count={Math.max(1, Math.ceil((data?.total ?? 0) / CLIENTS_PAGE_SIZE))} page={page} onChange={(_, value) => setPage(value)} />
       </Stack>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm" PaperProps={{ className: "glass-surface", sx: { borderRadius: "8px" } }}>

@@ -1,7 +1,6 @@
 import { Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusChip } from "../components/StatusChip";
@@ -36,9 +35,7 @@ export function RemindersPage() {
           <TableBody>
             {data.map((client) => (
               <TableRow key={client.id}>
-                <TableCell>
-                  <Link to={`/clients/${client.id}`}>{client.company_name}</Link>
-                </TableCell>
+                <TableCell>{client.company_name}</TableCell>
                 <TableCell>{client.phone}</TableCell>
                 <TableCell>{client.next_call_date}</TableCell>
                 <TableCell>

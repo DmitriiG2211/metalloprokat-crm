@@ -5,6 +5,8 @@ from typing import Any
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
+from openpyxl import load_workbook
+from openpyxl.styles.colors import COLOR_INDEX
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -36,9 +38,7 @@ FIELD_ALIASES = {
 }
 
 
-async def read_upload(file: UploadFile) -> pd.DataFrame:
-    raw = await file.read()
-    name = (file.filename or "").lower()
+def _read_dataframe(raw: bytes, name: str) -> pd.DataFrame:
     try:
         if name.endswith(".csv"):
             try:
@@ -50,6 +50,70 @@ async def read_upload(file: UploadFile) -> pd.DataFrame:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Не удалось прочитать файл: {exc}") from exc
     raise HTTPException(status_code=400, detail="Поддерживаются только .xlsx, .xls и .csv")
+
+
+def _cell_rgb(cell) -> str | None:
+    fill = cell.fill
+    color = fill.fgColor if fill and fill.fill_type else None
+    if not color:
+        return None
+    if color.type == "rgb" and color.rgb:
+        rgb = str(color.rgb)[-6:].upper()
+    elif color.type == "indexed" and color.indexed is not None and color.indexed < len(COLOR_INDEX):
+        rgb = str(COLOR_INDEX[color.indexed])[-6:].upper()
+    else:
+        return None
+    if rgb in {"000000", "FFFFFF"}:
+        return None
+    return rgb
+
+
+def _status_from_rgb(rgb: str | None) -> str | None:
+    if not rgb or len(rgb) != 6:
+        return None
+    red = int(rgb[0:2], 16)
+    green = int(rgb[2:4], 16)
+    blue = int(rgb[4:6], 16)
+    if red >= 220 and green <= 215 and blue <= 220:
+        return "Мертвый"
+    if red >= 220 and green >= 180 and blue <= 210:
+        return "50/50"
+    if green >= 150 and green >= red + 15 and green >= blue + 15:
+        return "Контактный"
+    return None
+
+
+def _detect_row_statuses(raw: bytes, name: str) -> dict[int, str]:
+    if not name.endswith((".xlsx", ".xlsm")):
+        return {}
+    statuses: dict[int, str] = {}
+    try:
+        workbook = load_workbook(BytesIO(raw), data_only=True, read_only=False)
+    except Exception:
+        return statuses
+    sheet = workbook.active
+    priority = {"Мертвый": 3, "50/50": 2, "Контактный": 1}
+    for row in sheet.iter_rows(min_row=2):
+        row_scores: dict[str, int] = {}
+        for cell in row:
+            status = _status_from_rgb(_cell_rgb(cell))
+            if status:
+                row_scores[status] = row_scores.get(status, 0) + 1
+        if row_scores:
+            statuses[row[0].row] = max(row_scores, key=lambda status: (row_scores[status], priority[status]))
+    return statuses
+
+
+async def read_upload(file: UploadFile) -> pd.DataFrame:
+    raw = await file.read()
+    name = (file.filename or "").lower()
+    return _read_dataframe(raw, name)
+
+
+async def read_upload_with_row_statuses(file: UploadFile) -> tuple[pd.DataFrame, dict[int, str]]:
+    raw = await file.read()
+    name = (file.filename or "").lower()
+    return _read_dataframe(raw, name), _detect_row_statuses(raw, name)
 
 
 def detect_mapping(columns: list[str]) -> dict[str, str | None]:
@@ -140,9 +204,12 @@ def import_dataframe(
     uploaded_by: User,
     assigned_manager_id: int,
     mapping: dict[str, str | None] | None = None,
+    row_statuses: dict[int, str] | None = None,
 ) -> ImportJob:
     mapping = mapping or detect_mapping([str(column) for column in df.columns])
     default_status = db.scalars(select(Status).where(Status.is_active.is_(True)).order_by(Status.sort_order)).first()
+    status_ids = {status.name.casefold(): status.id for status in db.scalars(select(Status).where(Status.is_active.is_(True))).all()}
+    row_statuses = row_statuses or {}
     job = ImportJob(filename=filename, uploaded_by=uploaded_by.id, assigned_manager_id=assigned_manager_id, status="running")
     db.add(job)
     db.flush()
@@ -182,6 +249,8 @@ def import_dataframe(
             job.duplicate_count += 1
             job.skipped_count += 1
             continue
+        row_status_name = row_statuses.get(row_number)
+        row_status_id = status_ids.get(row_status_name.casefold()) if row_status_name else None
 
         client = Client(
             manager_id=assigned_manager_id,
@@ -193,7 +262,7 @@ def import_dataframe(
             email=email,
             website=website,
             website_domain=domain,
-            status_id=default_status.id if default_status else None,
+            status_id=row_status_id or (default_status.id if default_status else None),
             last_call_date=parse_date(_get_value(row, mapping, "last_call_date")),
             next_call_date=parse_date(_get_value(row, mapping, "next_call_date")),
             source_import_id=job.id,
