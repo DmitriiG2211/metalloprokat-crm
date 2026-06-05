@@ -30,7 +30,7 @@ async def confirm(
 ):
     if not db.get(User, assigned_manager_id):
         raise HTTPException(404, "Менеджер не найден")
-    df = await read_upload(file)
+    df, row_statuses = await read_upload_with_row_statuses(file)
     try:
         mapping = json.loads(mapping_json) if mapping_json else None
     except JSONDecodeError as exc:
