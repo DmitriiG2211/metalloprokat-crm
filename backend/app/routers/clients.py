@@ -6,13 +6,17 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import can_view_all, ensure_client_access, get_current_user, request_meta
-from app.models import AuditLog, Client, ClientComment, Role, Task, Transfer, User
+from app.models import AuditLog, Client, ClientComment, Role, Status, Task, Transfer, User
 from app.schemas import ClientCreate, ClientRead, ClientUpdate, CommentCreate, CommentRead, Page, TaskRead, TransferCreate
 from app.services.audit import write_audit
 from app.services.importer import find_duplicate
 from app.utils.normalization import normalize_company, normalize_email, normalize_phone, normalize_website
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
+
+
+def is_dead_status():
+    return Client.status.has(Status.name.ilike("Мертв%"))
 
 
 def serialize_client(client: Client) -> ClientRead:
@@ -50,6 +54,8 @@ def list_clients(
     stmt = client_query(user)
     if status_id:
         stmt = stmt.where(Client.status_id == status_id)
+    else:
+        stmt = stmt.where(or_(Client.status_id.is_(None), ~is_dead_status()))
     if manager_id and can_view_all(user):
         stmt = stmt.where(Client.manager_id == manager_id)
     if overdue:

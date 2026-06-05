@@ -341,6 +341,10 @@ a {
   width: 100%;
 }
 
+.excel-table tbody tr {
+  height: 82px;
+}
+
 .excel-table th:nth-child(1),
 .excel-table td:nth-child(1) {
   width: 14% !important;
@@ -400,6 +404,8 @@ a {
 .excel-table .MuiTableCell-root {
   font-size: 12px;
   line-height: 1.25;
+  height: 82px;
+  overflow: hidden;
 }
 
 .excel-table th.MuiTableCell-root {
@@ -431,6 +437,51 @@ a {
   text-overflow: ellipsis;
 }
 
+.contact-cell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.contact-cell:has(.contact-call-button) {
+  grid-template-columns: 24px minmax(0, 1fr);
+  column-gap: 4px;
+}
+
+.contact-call-button.MuiIconButton-root {
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+}
+
+.contact-inline-input .MuiInputBase-root {
+  min-height: 52px;
+  align-items: flex-start;
+}
+
+.contact-inline-input textarea {
+  height: 44px !important;
+  max-height: 44px !important;
+  overflow: hidden !important;
+  resize: none;
+}
+
+.contact-more-button.MuiButton-root {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  min-width: 34px;
+  min-height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 900;
+  background: rgba(229, 242, 255, 0.94);
+  box-shadow: none !important;
+}
+
 .excel-table td:nth-child(1) .excel-input .MuiInputBase-root {
   font-size: 13.5px;
   font-weight: 850;
@@ -438,30 +489,19 @@ a {
 }
 
 .comment-cell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: start;
-  gap: 6px;
   min-width: 0;
 }
 
-.comment-preview {
-  display: -webkit-box;
-  min-height: 76px;
-  max-height: 112px;
-  overflow: hidden;
-  line-height: 1.36;
-  white-space: normal;
-  text-wrap: pretty;
-  line-clamp: 6;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
+.comment-inline-input .MuiInputBase-root {
+  min-height: 68px;
+  align-items: flex-start;
 }
 
-.comment-edit-button.MuiButton-root {
-  min-height: 28px;
-  padding-inline: 9px;
-  align-self: start;
+.comment-inline-input textarea {
+  height: 60px !important;
+  max-height: 60px !important;
+  overflow: hidden !important;
+  resize: none;
 }
 
 .soft-divider {
@@ -828,17 +868,6 @@ a {
 
   .mobile-client-card .comment-cell {
     grid-template-columns: 1fr;
-  }
-
-  .mobile-client-card .comment-preview {
-    min-height: auto;
-    max-height: none;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
-  }
-
-  .mobile-client-card .comment-edit-button.MuiButton-root {
-    justify-self: stretch;
   }
 
   .pagination-bar {

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import can_view_all, get_current_user
-from app.models import Client, User
+from app.models import Client, Status, User
 from app.services.audit import write_audit
 
 router = APIRouter(prefix="/export", tags=["Export"])
@@ -30,6 +30,8 @@ def export_clients(
         stmt = stmt.where(Client.manager_id == manager_id)
     if status_id:
         stmt = stmt.where(Client.status_id == status_id)
+    else:
+        stmt = stmt.where((Client.status_id.is_(None)) | (~Client.status.has(Status.name.ilike("Мертв%"))))
     if next_call_from:
         stmt = stmt.where(Client.next_call_date >= next_call_from)
     if next_call_to:

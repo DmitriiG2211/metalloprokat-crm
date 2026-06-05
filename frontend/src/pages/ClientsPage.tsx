@@ -89,7 +89,6 @@ function ContactCell({ value, kind, onSave }: { value?: string | null; kind: "ph
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [draft, setDraft] = useState(value || "");
   const items = splitContacts(value);
-  const visible = items.slice(0, 2);
   const hidden = items.slice(2);
   const open = Boolean(anchor);
 
@@ -102,31 +101,40 @@ function ContactCell({ value, kind, onSave }: { value?: string | null; kind: "ph
     setAnchor(null);
   };
 
+  const keyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.currentTarget.blur();
+    }
+  };
+
   return (
-    <Box sx={{ minWidth: 0 }}>
-      {items.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">-</Typography>
-      ) : (
-        <Stack spacing={0.25}>
-          {visible.map((item) => (
-            <Box key={item} sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
-              {kind === "phone" && (
-                <Tooltip title="Позвонить">
-                  <IconButton size="small" href={`tel:${item.replace(/[^\d+]/g, "")}`} sx={{ width: 24, height: 24 }}>
-                    <Phone sx={{ fontSize: 15 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Typography variant="body2" sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                {item}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
+    <Box className="contact-cell">
+      {kind === "phone" && items[0] && (
+        <Tooltip title="Позвонить">
+          <IconButton className="contact-call-button" size="small" href={`tel:${items[0].replace(/[^\d+]/g, "")}`}>
+            <Phone sx={{ fontSize: 15 }} />
+          </IconButton>
+        </Tooltip>
       )}
-      <Button size="small" className="glass-button" endIcon={<ExpandMore />} onClick={(event) => setAnchor(event.currentTarget)} sx={{ mt: 0.4, minHeight: 26, px: 1 }}>
-        {hidden.length > 0 ? `еще ${hidden.length}` : "ред."}
-      </Button>
+      <TextField
+        className="excel-input contact-inline-input"
+        value={draft}
+        placeholder={kind === "phone" ? "Телефон" : "Email"}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={keyDown}
+        multiline
+        minRows={2}
+        maxRows={2}
+        variant="standard"
+        fullWidth
+        InputProps={{ disableUnderline: true }}
+      />
+      {hidden.length > 0 && (
+        <Button size="small" className="contact-more-button" endIcon={<ExpandMore />} onMouseDown={(event) => event.preventDefault()} onClick={(event) => setAnchor(event.currentTarget)}>
+          +{hidden.length}
+        </Button>
+      )}
       <Popover open={open} anchorEl={anchor} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
         <Stack spacing={1} sx={{ p: 1.5, width: { xs: "calc(100dvw - 32px)", sm: 360 } }}>
           {items.length > 0 && (
@@ -156,37 +164,38 @@ function ContactCell({ value, kind, onSave }: { value?: string | null; kind: "ph
 }
 
 function CommentCell({ value, onSave }: { value?: string | null; onSave: (value: string) => void }) {
-  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [draft, setDraft] = useState(value || "");
-  const open = Boolean(anchor);
 
   useEffect(() => {
     setDraft(value || "");
   }, [value]);
 
-  const compact = (value || "").replace(/\s+/g, " ").trim();
-
   const commit = () => {
     if (draft.trim() && draft.trim() !== (value || "").trim()) onSave(draft.trim());
-    setAnchor(null);
+  };
+
+  const keyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.currentTarget.blur();
+    }
   };
 
   return (
     <Box className="comment-cell">
-      <Typography className="comment-preview" variant="body2" title={compact}>
-        {compact || "Добавить комментарий"}
-      </Typography>
-      <Button size="small" className="glass-button comment-edit-button" endIcon={<ExpandMore />} onClick={(event) => setAnchor(event.currentTarget)}>
-        ред.
-      </Button>
-      <Popover open={open} anchorEl={anchor} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
-        <Stack spacing={1} sx={{ p: 1.5, width: { xs: "calc(100dvw - 32px)", sm: 520 } }}>
-          <TextField label="Комментарий" value={draft} onChange={(event) => setDraft(event.target.value)} multiline minRows={6} size="small" />
-          <Button variant="contained" onClick={commit}>
-            Добавить в историю
-          </Button>
-        </Stack>
-      </Popover>
+      <TextField
+        className="excel-input comment-inline-input"
+        value={draft}
+        placeholder="Добавить комментарий"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={keyDown}
+        multiline
+        minRows={3}
+        maxRows={3}
+        variant="standard"
+        fullWidth
+        InputProps={{ disableUnderline: true }}
+      />
     </Box>
   );
 }
