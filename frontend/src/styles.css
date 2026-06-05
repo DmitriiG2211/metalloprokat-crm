@@ -5,19 +5,19 @@ body,
 }
 
 :root {
-  --app-ink: #122124;
-  --app-muted: #5e6f72;
+  --app-ink: #102033;
+  --app-muted: #5b6d83;
   --app-border: rgba(255, 255, 255, 0.56);
   --app-border-strong: rgba(255, 255, 255, 0.76);
   --glass-bg: rgba(255, 255, 255, 0.48);
   --glass-bg-strong: rgba(255, 255, 255, 0.68);
-  --glass-tint: rgba(233, 249, 250, 0.42);
-  --glass-shadow: 0 24px 70px rgba(20, 49, 56, 0.13);
-  --glass-shadow-strong: 0 34px 90px rgba(18, 48, 58, 0.18);
-  --accent: #087a8b;
-  --accent-strong: #075f6d;
-  --accent-soft: rgba(8, 122, 139, 0.12);
-  --violet-soft: rgba(118, 92, 255, 0.1);
+  --glass-tint: rgba(232, 243, 255, 0.5);
+  --glass-shadow: 0 24px 70px rgba(13, 67, 142, 0.13);
+  --glass-shadow-strong: 0 34px 90px rgba(10, 73, 156, 0.18);
+  --accent: #0877ee;
+  --accent-strong: #0055c8;
+  --accent-soft: rgba(8, 119, 238, 0.12);
+  --violet-soft: rgba(15, 156, 255, 0.1);
   --success-soft: rgba(55, 151, 112, 0.12);
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -31,9 +31,10 @@ body,
 body {
   margin: 0;
   color: var(--app-ink);
+  accent-color: var(--accent);
   background:
-    linear-gradient(135deg, rgba(238, 248, 246, 0.96) 0%, rgba(248, 251, 249, 0.98) 42%, rgba(232, 244, 247, 0.98) 100%),
-    linear-gradient(90deg, rgba(8, 122, 139, 0.08), rgba(118, 92, 255, 0.06));
+    linear-gradient(135deg, rgba(237, 245, 255, 0.98) 0%, rgba(249, 252, 255, 0.98) 42%, rgba(229, 241, 255, 0.98) 100%),
+    linear-gradient(90deg, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.06));
   background-attachment: fixed;
 }
 
@@ -45,8 +46,8 @@ body::before {
   content: "";
   background:
     linear-gradient(115deg, rgba(255, 255, 255, 0.42), transparent 34%),
-    linear-gradient(285deg, rgba(8, 122, 139, 0.1), transparent 52%),
-    linear-gradient(12deg, transparent 58%, rgba(118, 92, 255, 0.08));
+    linear-gradient(285deg, rgba(8, 119, 238, 0.12), transparent 52%),
+    linear-gradient(12deg, transparent 58%, rgba(15, 156, 255, 0.1));
   filter: saturate(1.05);
 }
 
@@ -56,13 +57,13 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid rgba(8, 122, 139, 0.34);
+  outline: 3px solid rgba(8, 119, 238, 0.34);
   outline-offset: 3px;
 }
 
 ::selection {
   color: #ffffff;
-  background: rgba(8, 122, 139, 0.82);
+  background: rgba(8, 119, 238, 0.82);
 }
 
 .app-shell {
@@ -79,6 +80,23 @@ a {
   min-height: 68px;
 }
 
+.brand-lockup {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  width: 156px;
+  max-width: 34vw;
+  height: 42px;
+  object-fit: contain;
+  object-position: left center;
+  border-radius: 8px;
+  mix-blend-mode: multiply;
+}
+
 .brand-title {
   text-wrap: balance;
 }
@@ -86,9 +104,9 @@ a {
 .sidebar-panel {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.36)),
-    linear-gradient(135deg, rgba(8, 122, 139, 0.08), rgba(118, 92, 255, 0.05)) !important;
+    linear-gradient(135deg, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.05)) !important;
   border-right: 1px solid rgba(255, 255, 255, 0.62) !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.5), 22px 0 70px rgba(20, 49, 56, 0.08);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.5), 22px 0 70px rgba(13, 67, 142, 0.08);
   backdrop-filter: blur(30px) saturate(1.18);
   -webkit-backdrop-filter: blur(30px) saturate(1.18);
 }
@@ -142,7 +160,7 @@ a {
   border: 1px solid var(--app-border-strong) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 0 rgba(25, 58, 64, 0.06),
+    inset 0 -1px 0 rgba(10, 49, 94, 0.06),
     var(--glass-shadow) !important;
   backdrop-filter: blur(28px) saturate(1.2) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.2) !important;
@@ -155,8 +173,8 @@ a {
 .glass-button {
   color: var(--app-ink) !important;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.46)),
-    linear-gradient(145deg, rgba(8, 122, 139, 0.13), rgba(118, 92, 255, 0.09)) !important;
+    linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.48)),
+    linear-gradient(145deg, rgba(8, 119, 238, 0.13), rgba(15, 156, 255, 0.09)) !important;
   border: 1px solid rgba(255, 255, 255, 0.76) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.94),
@@ -192,11 +210,25 @@ a {
   content: "";
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.52), transparent 42%),
-    linear-gradient(315deg, rgba(8, 122, 139, 0.12), transparent 48%);
+    linear-gradient(315deg, rgba(8, 119, 238, 0.14), transparent 48%);
 }
 
 .login-card > * {
   position: relative;
+}
+
+.login-logo-wrap {
+  display: flex;
+  margin-bottom: 18px;
+}
+
+.login-logo {
+  width: min(360px, 100%);
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
+  border-radius: 8px;
+  mix-blend-mode: multiply;
 }
 
 .login-choice-grid {
@@ -244,7 +276,7 @@ a {
   height: 3px;
   border-radius: 999px 999px 0 0;
   content: "";
-  background: linear-gradient(90deg, var(--accent), rgba(118, 92, 255, 0.82));
+  background: linear-gradient(90deg, var(--accent), rgba(15, 156, 255, 0.82));
   opacity: 0.42;
 }
 
@@ -272,7 +304,7 @@ a {
   z-index: 2;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.64)),
-    linear-gradient(90deg, rgba(8, 122, 139, 0.08), rgba(118, 92, 255, 0.05));
+    linear-gradient(90deg, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.05));
   backdrop-filter: blur(18px) saturate(1.12);
   -webkit-backdrop-filter: blur(18px) saturate(1.12);
 }
@@ -283,7 +315,7 @@ a {
 
 .premium-table tbody tr:hover {
   background: rgba(255, 255, 255, 0.58);
-  box-shadow: inset 3px 0 0 rgba(8, 122, 139, 0.52);
+  box-shadow: inset 3px 0 0 rgba(8, 119, 238, 0.52);
 }
 
 .excel-sheet {
@@ -375,8 +407,8 @@ a {
 .excel-input .MuiInputBase-root.Mui-focused {
   background: rgba(255, 255, 255, 0.76);
   box-shadow:
-    inset 0 0 0 1px rgba(8, 122, 139, 0.34),
-    0 8px 18px rgba(20, 49, 56, 0.08);
+    inset 0 0 0 1px rgba(8, 119, 238, 0.34),
+    0 8px 18px rgba(13, 67, 142, 0.08);
 }
 
 .excel-input input,
@@ -421,7 +453,7 @@ a {
 
 .soft-divider {
   height: 1px;
-  background: linear-gradient(90deg, rgba(8, 122, 139, 0.72), rgba(118, 92, 255, 0.42), transparent);
+  background: linear-gradient(90deg, rgba(8, 119, 238, 0.72), rgba(15, 156, 255, 0.42), transparent);
 }
 
 .pagination-bar {
@@ -508,7 +540,7 @@ a {
   border-radius: 7px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.36),
-    0 10px 28px rgba(8, 122, 139, 0.18);
+    0 10px 28px rgba(8, 119, 238, 0.18);
 }
 
 .clickable-report-row {
@@ -516,7 +548,7 @@ a {
 }
 
 .clickable-report-row:focus-visible {
-  outline: 3px solid rgba(8, 122, 139, 0.34);
+  outline: 3px solid rgba(8, 119, 238, 0.34);
   outline-offset: -3px;
 }
 
@@ -566,11 +598,11 @@ a {
 .MuiDialog-paper {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.54)),
-    linear-gradient(145deg, rgba(8, 122, 139, 0.09), rgba(118, 92, 255, 0.06)) !important;
+    linear-gradient(145deg, rgba(8, 119, 238, 0.09), rgba(15, 156, 255, 0.06)) !important;
   border: 1px solid rgba(255, 255, 255, 0.76) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 28px 70px rgba(20, 49, 56, 0.18) !important;
+    0 28px 70px rgba(13, 67, 142, 0.18) !important;
   backdrop-filter: blur(28px) saturate(1.18) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.18) !important;
 }
@@ -624,13 +656,13 @@ a {
   body {
     background:
       linear-gradient(135deg in oklab, rgba(238, 248, 246, 0.96) 0%, rgba(248, 251, 249, 0.98) 42%, rgba(232, 244, 247, 0.98) 100%),
-      linear-gradient(90deg in oklab, rgba(8, 122, 139, 0.08), rgba(118, 92, 255, 0.06));
+      linear-gradient(90deg in oklab, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.06));
   }
 
   .soft-divider,
   .metric-card::after,
   .sidebar-link::before {
-    background: linear-gradient(90deg in oklab, var(--accent), rgba(118, 92, 255, 0.82), transparent);
+    background: linear-gradient(90deg in oklab, var(--accent), rgba(15, 156, 255, 0.82), transparent);
   }
 }
 

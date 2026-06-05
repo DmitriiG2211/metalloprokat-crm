@@ -76,7 +76,7 @@ export function Layout({ user }: { user: User }) {
               transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
               "&.Mui-selected": {
                 bgcolor: "rgba(255,255,255,0.74)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92), 0 16px 34px rgba(25,58,63,0.12)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92), 0 16px 34px rgba(8,119,238,0.12)",
                 color: "primary.dark"
               },
               "&:hover": { bgcolor: "rgba(255,255,255,0.6)" },
@@ -99,9 +99,12 @@ export function Layout({ user }: { user: User }) {
           <IconButton className="glass-button mobile-menu-button" onClick={() => setMobileOpen(true)} sx={{ mr: 1, display: { md: "none" } }} aria-label="Menu">
             <Menu />
           </IconButton>
-          <Typography className="brand-title" variant="h6" sx={{ flexGrow: 1, fontWeight: 900 }}>
-            CRM Металлопрокат
-          </Typography>
+          <Box className="brand-lockup" sx={{ flexGrow: 1 }}>
+            <Box component="img" className="brand-logo" src="/logo.jpg" alt="Мегаполис" />
+            <Typography className="brand-title" variant="h6" sx={{ fontWeight: 900 }}>
+              CRM Мегаполис
+            </Typography>
+          </Box>
           <Chip label={user.full_name} size="small" className="glass-button" sx={{ mr: 1.5, fontWeight: 800 }} />
           <Tooltip title="Выйти">
             <IconButton className="glass-button" onClick={logout}>

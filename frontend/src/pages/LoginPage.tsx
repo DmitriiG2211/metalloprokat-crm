@@ -43,8 +43,11 @@ export function LoginPage() {
   return (
     <Box className="login-shell">
       <Paper className="glass-surface login-card" sx={{ width: "100%", maxWidth: 620, p: { xs: 3, md: 4 }, borderRadius: "8px" }} elevation={0}>
+        <Box className="login-logo-wrap">
+          <Box component="img" className="login-logo" src="/logo.jpg" alt="Мегаполис" />
+        </Box>
         <Typography variant="h4" sx={{ mb: 1, fontSize: 30, textWrap: "balance" }}>
-          Вход в CRM
+          CRM Мегаполис
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textWrap: "pretty" }}>
           Выберите пользователя для работы

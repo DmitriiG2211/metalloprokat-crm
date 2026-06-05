@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "CRM Металлопрокат"
+    app_name: str = "CRM Мегаполис"
     database_url: str = "sqlite:///./crm_local.db"
     database_schema: str = ""
     secret_key: str = "change-me-in-production"

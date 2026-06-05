@@ -12,13 +12,13 @@ const theme = createTheme(
   {
     palette: {
       mode: "light",
-      primary: { main: "#087a8b", dark: "#075f6d", light: "#d8f4f6" },
-      secondary: { main: "#765cff", dark: "#5841d8", light: "#ece8ff" },
-      background: { default: "#eef8f6", paper: "rgba(255,255,255,0.68)" },
-      success: { main: "#32835e", light: "#dff5e9" },
-      warning: { main: "#af7a18", light: "#fff0cc" },
-      error: { main: "#b84e58", light: "#ffe2e5" },
-      text: { primary: "#122124", secondary: "#5e6f72" }
+      primary: { main: "#0877ee", dark: "#0055c8", light: "#ddebff" },
+      secondary: { main: "#0f9cff", dark: "#0877ee", light: "#e7f4ff" },
+      background: { default: "#edf5ff", paper: "rgba(255,255,255,0.72)" },
+      success: { main: "#24885c", light: "#ddf6ea" },
+      warning: { main: "#b47512", light: "#fff0cc" },
+      error: { main: "#ba4250", light: "#ffe1e5" },
+      text: { primary: "#102033", secondary: "#5b6d83" }
     },
     shape: { borderRadius: 8 },
     typography: {
@@ -33,7 +33,7 @@ const theme = createTheme(
         styleOverrides: {
           body: {
             background:
-              "linear-gradient(135deg, rgba(238,248,246,0.96) 0%, rgba(248,251,249,0.98) 42%, rgba(232,244,247,0.98) 100%)"
+              "linear-gradient(135deg, rgba(237,245,255,0.98) 0%, rgba(249,252,255,0.98) 42%, rgba(229,241,255,0.98) 100%)"
           }
         }
       },
@@ -48,16 +48,16 @@ const theme = createTheme(
             transition: "transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease",
             "&:hover": { transform: "translateY(-1px)" },
             "&:focus-visible": {
-              outline: "3px solid rgba(8, 122, 139, 0.34)",
+              outline: "3px solid rgba(8, 119, 238, 0.32)",
               outlineOffset: 3
             }
           },
           contained: {
             color: "#ffffff",
-            background: "linear-gradient(135deg, rgba(8,122,139,0.98), rgba(59,151,147,0.94))",
-            boxShadow: "0 18px 38px rgba(8, 122, 139, 0.24), inset 0 1px 0 rgba(255,255,255,0.32)",
+            background: "linear-gradient(135deg, rgba(8,119,238,0.98), rgba(15,156,255,0.94))",
+            boxShadow: "0 18px 38px rgba(8, 119, 238, 0.24), inset 0 1px 0 rgba(255,255,255,0.32)",
             "&:hover": {
-              boxShadow: "0 22px 48px rgba(8, 122, 139, 0.30), inset 0 1px 0 rgba(255,255,255,0.4)"
+              boxShadow: "0 22px 48px rgba(8, 119, 238, 0.30), inset 0 1px 0 rgba(255,255,255,0.4)"
             }
           },
           outlined: {
@@ -73,7 +73,7 @@ const theme = createTheme(
           root: {
             backgroundImage: "none",
             border: "1px solid rgba(255,255,255,0.66)",
-            boxShadow: "0 24px 70px rgba(20, 49, 56, 0.12)",
+            boxShadow: "0 24px 70px rgba(13, 67, 142, 0.12)",
             backdropFilter: "blur(26px) saturate(1.16)"
           }
         }
@@ -86,8 +86,8 @@ const theme = createTheme(
               background: "rgba(255,255,255,0.72)",
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
               "& fieldset": { borderColor: "rgba(22, 61, 66, 0.14)" },
-              "&:hover fieldset": { borderColor: "rgba(8, 122, 139, 0.38)" },
-              "&.Mui-focused fieldset": { borderColor: "rgba(8, 122, 139, 0.64)" }
+              "&:hover fieldset": { borderColor: "rgba(8, 119, 238, 0.38)" },
+              "&.Mui-focused fieldset": { borderColor: "rgba(8, 119, 238, 0.64)" }
             }
           }
         }
@@ -120,7 +120,7 @@ const theme = createTheme(
             borderRadius: 12,
             "&.Mui-selected": {
               color: "#fff",
-              background: "linear-gradient(135deg, #087a8b, #3b9793)"
+              background: "linear-gradient(135deg, #0877ee, #0f9cff)"
             }
           }
         }

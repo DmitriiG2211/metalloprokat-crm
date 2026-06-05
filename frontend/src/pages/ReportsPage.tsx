@@ -40,7 +40,7 @@ const monthStart = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
 };
 
-const managerPalette = ["#087a8b", "#6f5bff", "#d97706", "#16a34a", "#db2777", "#2563eb", "#9333ea", "#0f766e"];
+const managerPalette = ["#0877ee", "#0f9cff", "#0055c8", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0f766e"];
 
 function managerColor(row: DailyReportSummaryRow) {
   const source = row.manager_number || row.login || String(row.manager_id);
