@@ -88,7 +88,10 @@ def list_clients(
     total = db.scalar(count_stmt) or 0
     sort_column = getattr(Client, sort_by, Client.updated_at)
     stmt = stmt.options(joinedload(Client.manager), joinedload(Client.status), joinedload(Client.comments))
-    stmt = stmt.order_by(sort_column.asc() if sort_dir == "asc" else sort_column.desc())
+    if sort_dir == "asc":
+        stmt = stmt.order_by(sort_column.asc(), Client.id.asc())
+    else:
+        stmt = stmt.order_by(sort_column.desc(), Client.id.desc())
     clients = db.scalars(stmt.offset((page - 1) * page_size).limit(page_size)).unique().all()
     return {"items": [serialize_client(client).model_dump(mode="json") for client in clients], "total": total, "page": page, "page_size": page_size}
 

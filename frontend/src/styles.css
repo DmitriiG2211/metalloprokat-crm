@@ -659,7 +659,7 @@ a {
 }
 
 .mobile-list {
-  display: none;
+  display: none !important;
 }
 
 .mobile-client-list {
@@ -755,11 +755,11 @@ a {
 
 @media (max-width: 760px) {
   .desktop-table {
-    display: none;
+    display: none !important;
   }
 
   .mobile-list {
-    display: flex;
+    display: flex !important;
   }
 
   .app-topbar .MuiToolbar-root {
@@ -904,6 +904,6 @@ a {
 
 @media (min-width: 761px) {
   .mobile-list {
-    display: none;
+    display: none !important;
   }
 }
