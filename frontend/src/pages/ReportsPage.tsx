@@ -199,15 +199,23 @@ function ManagerReportForm() {
     queryKey: ["daily-report-my", reportDate],
     queryFn: async () => (await api.get<DailyReport | null>("/daily-reports/my", { params: { report_date: reportDate } })).data
   });
+  const { data: previousReports = [] } = useQuery({
+    queryKey: ["daily-reports-my-list"],
+    queryFn: async () => (await api.get<DailyReport[]>("/daily-reports")).data
+  });
 
   useEffect(() => {
+    if (currentReport === undefined) return;
     setForm(toFormState(reportDate, currentReport));
   }, [currentReport, reportDate]);
 
   const save = useMutation({
     mutationFn: async () => (await api.put<DailyReport>("/daily-reports/my", toPayload(form))).data,
-    onSuccess: () => {
+    onSuccess: (savedReport) => {
+      setReportDate(savedReport.report_date);
+      setForm(toFormState(savedReport.report_date, savedReport));
       queryClient.invalidateQueries({ queryKey: ["daily-report-my"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-reports-my-list"] });
       queryClient.invalidateQueries({ queryKey: ["daily-reports"] });
       queryClient.invalidateQueries({ queryKey: ["daily-reports-summary"] });
     }
@@ -234,6 +242,28 @@ function ManagerReportForm() {
             InputLabelProps={{ shrink: true }}
             size="small"
           />
+          <TextField
+            select
+            label="Предыдущие отчеты"
+            value=""
+            onChange={(event) => setReportDate(event.target.value)}
+            size="small"
+            sx={{ minWidth: { sm: 220 } }}
+          >
+            <MenuItem value="" disabled>
+              Выбрать дату
+            </MenuItem>
+            {previousReports.map((report) => (
+              <MenuItem key={report.id} value={report.report_date}>
+                {report.report_date}
+              </MenuItem>
+            ))}
+            {previousReports.length === 0 && (
+              <MenuItem value="" disabled>
+                Сохраненных отчетов нет
+              </MenuItem>
+            )}
+          </TextField>
           <Chip icon={<Today />} label={currentReport ? "Отчет за дату уже есть, можно обновить" : "Новый отчет за выбранную дату"} className="glass-button" />
           <Button type="submit" variant="contained" startIcon={<Save />} disabled={save.isPending || isFetching} sx={{ ml: { sm: "auto" } }}>
             Сохранить отчет
