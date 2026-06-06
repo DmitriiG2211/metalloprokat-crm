@@ -13,6 +13,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   LinearProgress,
   MenuItem,
   Paper,
@@ -26,7 +30,7 @@ import {
   Typography
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { BaseCleanupStats, ManagerQualityRow, MotivationRow, RefusalAnalytics, User } from "../types";
@@ -226,7 +230,7 @@ function QualityPanel({ rows }: { rows: ManagerQualityRow[] }) {
   );
 }
 
-function RefusalsPanel({ data }: { data?: RefusalAnalytics }) {
+function RefusalsPanel({ data, onAiAnalyze, isAiLoading }: { data?: RefusalAnalytics; onAiAnalyze: () => void; isAiLoading: boolean }) {
   const max = Math.max(1, ...(data?.reasons.map((reason) => reason.count) || [0]));
   const commentMax = Math.max(1, ...(data?.comment_reasons?.reasons.map((reason) => reason.count) || [0]));
   return (
@@ -260,15 +264,28 @@ function RefusalsPanel({ data }: { data?: RefusalAnalytics }) {
         </Box>
         <Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }} justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography fontWeight={900}>
-              По комментариям клиентов
-            </Typography>
-            <Chip
-              className="glass-button"
-              size="small"
-              label={`${data?.comment_reasons?.clients_with_comments ?? 0} из ${data?.comment_reasons?.total_clients ?? data?.comment_reasons?.total_dead_clients ?? 0}`}
-            />
+            <Box>
+              <Typography fontWeight={900}>По комментариям клиентов</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {data?.comment_reasons?.ai_used ? "Разобрано нейросетью" : "Быстрый анализ по правилам"}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75 }}>
+              <Chip
+                className="glass-button"
+                size="small"
+                label={`${data?.comment_reasons?.clients_with_comments ?? 0} из ${data?.comment_reasons?.total_clients ?? data?.comment_reasons?.total_dead_clients ?? 0}`}
+              />
+              <Button size="small" variant="contained" onClick={onAiAnalyze} disabled={isAiLoading || !data?.comment_reasons?.ai_enabled}>
+                {isAiLoading ? "AI анализирует..." : "AI-анализ"}
+              </Button>
+            </Stack>
           </Stack>
+          {!data?.comment_reasons?.ai_enabled && (
+            <Alert severity="info" sx={{ mb: 1 }}>
+              AI подключится после настройки Ollama на сервере. Базовый анализ уже работает.
+            </Alert>
+          )}
           <Stack spacing={1.2}>
             {data?.comment_reasons?.reasons.map((reason, index) => {
               const color = managerColors[(index + 2) % managerColors.length];
@@ -315,13 +332,25 @@ function RefusalsPanel({ data }: { data?: RefusalAnalytics }) {
 
 function CleanupPanel({ stats }: { stats?: BaseCleanupStats }) {
   const queryClient = useQueryClient();
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const normalize = useMutation({
     mutationFn: async () => (await api.post("/analytics/base-cleanup/normalize")).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["base-cleanup"] })
   });
   const archiveDead = useMutation({
     mutationFn: async () => (await api.post("/analytics/base-cleanup/archive-dead")).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["base-cleanup"] })
+    onSuccess: () => {
+      setArchiveConfirmOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["base-cleanup"] });
+      queryClient.invalidateQueries({ queryKey: ["refusals"] });
+    }
+  });
+  const restoreArchived = useMutation({
+    mutationFn: async () => (await api.post("/analytics/base-cleanup/restore-archived-dead")).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["base-cleanup"] });
+      queryClient.invalidateQueries({ queryKey: ["refusals"] });
+    }
   });
 
   return (
@@ -333,22 +362,28 @@ function CleanupPanel({ stats }: { stats?: BaseCleanupStats }) {
         <StatCard label="Без почты" value={stats?.no_email ?? 0} icon={<WarningAmber />} />
         <StatCard label="Без комментария" value={stats?.no_comment ?? 0} icon={<Insights />} />
         <StatCard label="Мертвые" value={stats?.dead_clients ?? 0} icon={<WarningAmber />} />
-        <StatCard label="Группы дублей" value={stats?.duplicate_groups_count ?? 0} icon={<AutoFixHigh />} />
+        <StatCard label="В архиве" value={stats?.archived_dead_clients ?? 0} icon={<CleaningServices />} />
       </Box>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1.5 }}>
         <Button variant="contained" startIcon={<AutoFixHigh />} onClick={() => normalize.mutate()} disabled={normalize.isPending}>
           Нормализовать контакты
         </Button>
-        <Button color="warning" startIcon={<CleaningServices />} onClick={() => archiveDead.mutate()} disabled={archiveDead.isPending}>
+        <Button color="warning" startIcon={<CleaningServices />} onClick={() => setArchiveConfirmOpen(true)} disabled={archiveDead.isPending || !stats?.dead_clients}>
           Архивировать мертвых
         </Button>
+        <Button startIcon={<CleaningServices />} onClick={() => restoreArchived.mutate()} disabled={restoreArchived.isPending || !stats?.archived_dead_clients}>
+          Восстановить архив
+        </Button>
       </Stack>
-      {(normalize.error || archiveDead.error) && (
+      <Alert severity="info" sx={{ mt: 1.5 }}>
+        Архив не удаляет клиентов безвозвратно. Записи скрываются из активной базы, но их можно вернуть кнопкой «Восстановить архив».
+      </Alert>
+      {(normalize.error || archiveDead.error || restoreArchived.error) && (
         <Alert severity="error" sx={{ mt: 1.5 }}>
-          {errorMessage(normalize.error || archiveDead.error)}
+          {errorMessage(normalize.error || archiveDead.error || restoreArchived.error)}
         </Alert>
       )}
-      {(normalize.isSuccess || archiveDead.isSuccess) && (
+      {(normalize.isSuccess || archiveDead.isSuccess || restoreArchived.isSuccess) && (
         <Alert severity="success" sx={{ mt: 1.5 }}>
           База обновлена
         </Alert>
@@ -392,6 +427,23 @@ function CleanupPanel({ stats }: { stats?: BaseCleanupStats }) {
           </Stack>
         </Box>
       </Box>
+      <Dialog open={archiveConfirmOpen} onClose={() => setArchiveConfirmOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Подтвердить архивацию</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 1 }}>
+            Сейчас в архив уйдет клиентов со статусом «Мертвый»: {stats?.dead_clients ?? 0}.
+          </Typography>
+          <Typography color="text.secondary">
+            Это не безвозвратное удаление. Клиенты будут скрыты из активной базы, но их можно вернуть кнопкой «Восстановить архив».
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setArchiveConfirmOpen(false)}>Отмена</Button>
+          <Button color="warning" variant="contained" onClick={() => archiveDead.mutate()} disabled={archiveDead.isPending}>
+            Архивировать
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
@@ -400,7 +452,12 @@ export function ControlPage() {
   const [dateFrom, setDateFrom] = useState(monthStart());
   const [dateTo, setDateTo] = useState(today());
   const [managerId, setManagerId] = useState("");
+  const [useAiForComments, setUseAiForComments] = useState(false);
   const params = { date_from: dateFrom || undefined, date_to: dateTo || undefined, manager_id: managerId || undefined };
+
+  useEffect(() => {
+    setUseAiForComments(false);
+  }, [dateFrom, dateTo, managerId]);
 
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: async () => (await api.get<User[]>("/users")).data });
   const managers = useMemo(() => users.filter((user) => user.role === "manager"), [users]);
@@ -408,9 +465,9 @@ export function ControlPage() {
     queryKey: ["manager-quality", dateFrom, dateTo, managerId],
     queryFn: async () => (await api.get<ManagerQualityRow[]>("/analytics/manager-quality", { params })).data
   });
-  const { data: refusals } = useQuery({
-    queryKey: ["refusals", dateFrom, dateTo, managerId],
-    queryFn: async () => (await api.get<RefusalAnalytics>("/analytics/refusals", { params })).data
+  const { data: refusals, isFetching: refusalsFetching } = useQuery({
+    queryKey: ["refusals", dateFrom, dateTo, managerId, useAiForComments],
+    queryFn: async () => (await api.get<RefusalAnalytics>("/analytics/refusals", { params: { ...params, use_ai: useAiForComments || undefined } })).data
   });
   const { data: cleanup } = useQuery({
     queryKey: ["base-cleanup"],
@@ -454,7 +511,7 @@ export function ControlPage() {
         </Box>
         <MotivationPanel rows={motivation} />
         <QualityPanel rows={quality} />
-        <RefusalsPanel data={refusals} />
+        <RefusalsPanel data={refusals} onAiAnalyze={() => setUseAiForComments(true)} isAiLoading={refusalsFetching && useAiForComments} />
         <CleanupPanel stats={cleanup} />
       </Stack>
     </>

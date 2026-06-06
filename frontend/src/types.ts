@@ -160,6 +160,9 @@ export interface RefusalAnalytics {
     total_clients?: number;
     total_dead_clients: number;
     clients_with_comments: number;
+    ai_enabled?: boolean;
+    ai_used?: boolean;
+    ai_candidates?: number;
     reasons: CommentReasonRow[];
   };
 }
@@ -170,6 +173,7 @@ export interface BaseCleanupStats {
   no_email: number;
   no_comment: number;
   dead_clients: number;
+  archived_dead_clients?: number;
   duplicate_groups_count: number;
   duplicate_groups: Array<{ type: string; value: string; count: number }>;
   recent_imports: Array<{

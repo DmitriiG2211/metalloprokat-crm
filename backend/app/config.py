@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost"
     frontend_dist_path: str = ""
     upload_max_mb: int = 25
+    ollama_base_url: str = ""
+    ollama_api_key: str = ""
+    ollama_model: str = "gpt-oss:20b"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

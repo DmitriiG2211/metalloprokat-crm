@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, time, timezone
 
+import httpx
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.config import get_settings
 from app.database import get_db
 from app.deps import can_view_all, get_current_user, require_roles, request_meta
 from app.models import Client, ClientComment, DailyReport, ImportJob, Role, Status, Task, TaskStatus, User
@@ -14,6 +17,7 @@ from app.services.audit import write_audit
 from app.utils.normalization import normalize_email, normalize_phone, normalize_website
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+settings = get_settings()
 
 
 def _month_start() -> date:
@@ -148,7 +152,56 @@ def _comment_reason(text: str) -> tuple[str, str]:
     return "other", "Прочее"
 
 
-def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None = None) -> dict:
+def _ai_comment_batch(items: list[dict]) -> dict[int, str]:
+    if not settings.ollama_base_url or not settings.ollama_api_key or not items:
+        return {}
+    allowed = {key for key, _, _ in COMMENT_REASON_RULES} | {"other"}
+    compact_items = [{"index": item["index"], "comment": item["comment"][:420]} for item in items]
+    prompt = (
+        "Ты классифицируешь комментарии CRM по причинам отказа. "
+        "Ответь строго JSON-массивом объектов вида {\"index\": 1, \"category\": \"no_answer\"}. "
+        "Категории: no_answer=автоответчик/не отвечает/недоступен/не дозвон; "
+        "not_buying=не закупают/нет потребности; sells_metal=сами продают металл/конкурент; "
+        "not_metal=не работают с металлом; email_only=слили в почту; other=непонятно/другое. "
+        f"Комментарии: {json.dumps(compact_items, ensure_ascii=False)}"
+    )
+    base_url = settings.ollama_base_url.rstrip("/")
+    try:
+        response = httpx.post(
+            f"{base_url}/generate",
+            headers={"Authorization": f"Bearer {settings.ollama_api_key}"},
+            json={"model": settings.ollama_model, "prompt": prompt, "stream": False, "format": "json"},
+            timeout=45,
+        )
+        response.raise_for_status()
+        raw = response.json().get("response", "")
+        parsed = json.loads(raw)
+    except Exception:
+        return {}
+    if not isinstance(parsed, list):
+        return {}
+    result: dict[int, str] = {}
+    for row in parsed:
+        if not isinstance(row, dict):
+            continue
+        try:
+            index = int(row.get("index"))
+        except (TypeError, ValueError):
+            continue
+        category = str(row.get("category", "other"))
+        result[index] = category if category in allowed else "other"
+    return result
+
+
+def _ai_comment_categories(items: list[dict]) -> dict[int, str]:
+    result: dict[int, str] = {}
+    batch_size = 80
+    for start in range(0, len(items), batch_size):
+        result.update(_ai_comment_batch(items[start : start + batch_size]))
+    return result
+
+
+def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None = None, use_ai: bool = False) -> dict:
     stmt = (
         select(Client)
         .options(joinedload(Client.comments), joinedload(Client.status), joinedload(Client.manager))
@@ -165,24 +218,39 @@ def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None
     }
     buckets["other"] = {"key": "other", "label": "Прочее", "count": 0, "examples": []}
     clients_with_comments = 0
+    classified_rows: list[dict] = []
 
-    for client in clients:
+    for index, client in enumerate(clients):
         comments = [comment.comment_text.strip() for comment in client.comments if comment.deleted_at is None and comment.comment_text.strip()]
         if not comments:
             continue
         clients_with_comments += 1
         combined_comment = " // ".join(comments[-3:])
         key, _ = _comment_reason(combined_comment)
+        row = {"index": index, "client": client, "comment": combined_comment, "key": key}
+        classified_rows.append(row)
+
+    ai_used = False
+    ai_items = [{"index": row["index"], "comment": row["comment"]} for row in classified_rows]
+    ai_suggestions = _ai_comment_categories(ai_items) if use_ai else {}
+    if ai_suggestions:
+        ai_used = True
+
+    for row in classified_rows:
+        key = ai_suggestions.get(row["index"], row["key"])
         bucket = buckets[key]
         bucket["count"] += 1
         if len(bucket["examples"]) < 5:
-            bucket["examples"].append({"company": client.company_name, "comment": combined_comment[:240]})
+            bucket["examples"].append({"company": row["client"].company_name, "comment": row["comment"][:240]})
 
     reasons = sorted(buckets.values(), key=lambda item: item["count"], reverse=True)
     return {
         "total_clients": len(clients),
         "total_dead_clients": len(clients),
         "clients_with_comments": clients_with_comments,
+        "ai_enabled": bool(settings.ollama_base_url and settings.ollama_api_key),
+        "ai_used": ai_used,
+        "ai_candidates": len(ai_items),
         "reasons": reasons,
     }
 
@@ -295,6 +363,7 @@ def refusal_analytics(
     date_from: date | None = None,
     date_to: date | None = None,
     manager_id: int | None = None,
+    use_ai: bool = Query(False),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -336,7 +405,7 @@ def refusal_analytics(
         "total": total,
         "reasons": reasons,
         "by_manager": by_manager,
-        "comment_reasons": _dead_client_comment_reasons(db, user, manager_id),
+        "comment_reasons": _dead_client_comment_reasons(db, user, manager_id, use_ai=use_ai),
     }
 
 
@@ -362,6 +431,14 @@ def base_cleanup(db: Session = Depends(get_db), user: User = Depends(get_current
             select(func.count(Client.id))
             .join(Status, Status.id == Client.status_id)
             .where(Client.deleted_at.is_(None), _dead_status_condition())
+        )
+        or 0
+    )
+    archived_dead_clients = (
+        db.scalar(
+            select(func.count(Client.id))
+            .join(Status, Status.id == Client.status_id)
+            .where(Client.deleted_at.is_not(None), _dead_status_condition())
         )
         or 0
     )
@@ -402,6 +479,7 @@ def base_cleanup(db: Session = Depends(get_db), user: User = Depends(get_current
         "no_email": no_email,
         "no_comment": no_comment,
         "dead_clients": dead_clients,
+        "archived_dead_clients": archived_dead_clients,
         "duplicate_groups_count": len(duplicate_groups),
         "duplicate_groups": duplicate_groups,
         "recent_imports": [
@@ -458,6 +536,23 @@ def archive_dead_clients(
     write_audit(db, user, "archive_dead_clients", "client", None, new_value={"archived": len(clients)}, ip_address=ip, user_agent=agent)
     db.commit()
     return {"ok": True, "archived": len(clients)}
+
+
+@router.post("/base-cleanup/restore-archived-dead")
+def restore_archived_dead_clients(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.admin, Role.director)),
+):
+    clients = db.scalars(
+        select(Client).join(Status, Status.id == Client.status_id).where(Client.deleted_at.is_not(None), _dead_status_condition())
+    ).all()
+    for client in clients:
+        client.deleted_at = None
+    ip, agent = request_meta(request)
+    write_audit(db, user, "restore_archived_dead_clients", "client", None, new_value={"restored": len(clients)}, ip_address=ip, user_agent=agent)
+    db.commit()
+    return {"ok": True, "restored": len(clients)}
 
 
 @router.get("/motivation")
