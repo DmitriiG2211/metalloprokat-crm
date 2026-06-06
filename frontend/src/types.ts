@@ -163,8 +163,23 @@ export interface RefusalAnalytics {
     ai_enabled?: boolean;
     ai_used?: boolean;
     ai_candidates?: number;
+    ai_job?: AiAnalysisJobStatus;
     reasons: CommentReasonRow[];
   };
+}
+
+export interface AiAnalysisJobStatus {
+  status: "idle" | "disabled" | "queued" | "running" | "done" | "error";
+  processed: number;
+  total: number;
+  progress: number;
+  elapsed_seconds: number;
+  estimated_total_seconds: number;
+  estimated_left_seconds: number;
+  started_at?: string | null;
+  updated_at?: string | null;
+  completed_at?: string | null;
+  error?: string | null;
 }
 
 export interface BaseCleanupStats {

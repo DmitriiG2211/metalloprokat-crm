@@ -33,7 +33,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { BaseCleanupStats, ManagerQualityRow, MotivationRow, RefusalAnalytics, User } from "../types";
+import { AiAnalysisJobStatus, BaseCleanupStats, ManagerQualityRow, MotivationRow, RefusalAnalytics, User } from "../types";
 
 const toIsoDate = (date: Date) => {
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -246,32 +246,24 @@ function RefusalsPanel({
   data,
   onAiAnalyze,
   isAiLoading,
+  aiJob,
   aiError
 }: {
   data?: RefusalAnalytics;
   onAiAnalyze: () => void;
   isAiLoading: boolean;
+  aiJob?: AiAnalysisJobStatus;
   aiError?: unknown;
 }) {
   const max = Math.max(1, ...(data?.reasons.map((reason) => reason.count) || [0]));
   const commentMax = Math.max(1, ...(data?.comment_reasons?.reasons.map((reason) => reason.count) || [0]));
-  const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
   const aiCandidates = data?.comment_reasons?.ai_candidates ?? data?.comment_reasons?.clients_with_comments ?? 0;
-  const estimatedTotalSeconds = aiCandidates > 0 ? Math.max(90, Math.ceil((aiCandidates / 120) * 35)) : 240;
-  const estimatedLeftSeconds = Math.max(0, estimatedTotalSeconds - aiElapsedSeconds);
-  const aiProgress = Math.min(96, Math.max(8, (aiElapsedSeconds / estimatedTotalSeconds) * 100));
-
-  useEffect(() => {
-    if (!isAiLoading) {
-      setAiElapsedSeconds(0);
-      return undefined;
-    }
-    setAiElapsedSeconds(0);
-    const intervalId = window.setInterval(() => {
-      setAiElapsedSeconds((value) => value + 1);
-    }, 1000);
-    return () => window.clearInterval(intervalId);
-  }, [isAiLoading]);
+  const aiElapsedSeconds = aiJob?.elapsed_seconds ?? 0;
+  const aiProcessed = aiJob?.processed ?? 0;
+  const aiTotal = aiJob?.total ?? aiCandidates;
+  const aiProgress = isAiLoading ? Math.min(99, Math.max(4, aiJob?.progress ?? 4)) : aiJob?.progress ?? 0;
+  const estimatedLeftSeconds = aiJob?.estimated_left_seconds ?? 0;
+  const aiFailed = aiJob?.status === "error";
 
   return (
     <Paper className="glass-surface control-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
@@ -317,7 +309,7 @@ function RefusalsPanel({
                 label={`${data?.comment_reasons?.clients_with_comments ?? 0} из ${data?.comment_reasons?.total_clients ?? data?.comment_reasons?.total_dead_clients ?? 0}`}
               />
               <Button size="small" variant="contained" onClick={onAiAnalyze} disabled={isAiLoading || !data?.comment_reasons?.ai_enabled}>
-                {isAiLoading ? "AI анализирует..." : "AI-анализ"}
+                {isAiLoading ? "AI анализирует..." : aiJob?.status === "done" ? "Обновить AI-анализ" : "AI-анализ"}
               </Button>
             </Stack>
           </Stack>
@@ -325,18 +317,23 @@ function RefusalsPanel({
             <Alert severity="info" sx={{ mb: 1 }}>
               <Stack spacing={0.8}>
                 <Typography variant="body2" fontWeight={800}>
-                  AI анализирует все комментарии. Прошло: {formatDuration(aiElapsedSeconds)}. Примерно осталось: {formatDuration(estimatedLeftSeconds)}.
+                  AI анализирует комментарии. Прошло: {formatDuration(aiElapsedSeconds)}. Примерно осталось: {formatDuration(estimatedLeftSeconds)}.
                 </Typography>
                 <LinearProgress variant="determinate" value={aiProgress} />
                 <Typography variant="caption" color="text.secondary">
-                  Оценка примерная: время зависит от ответа AI-сервера и количества комментариев ({aiCandidates} шт.).
+                  Обработано AI: {aiProcessed} из {aiTotal}. Если обновить страницу или перейти в другую вкладку, анализ продолжит идти на сервере.
                 </Typography>
               </Stack>
             </Alert>
           )}
-          {Boolean(aiError) && (
+          {aiJob?.status === "done" && data?.comment_reasons?.ai_used && (
+            <Alert severity="success" sx={{ mb: 1 }}>
+              AI-анализ завершен. Результат сохранен и будет показываться после обновления страницы.
+            </Alert>
+          )}
+          {(Boolean(aiError) || aiFailed) && (
             <Alert severity="error" sx={{ mb: 1 }}>
-              AI-анализ не завершился: {errorMessage(aiError)}
+              AI-анализ не завершился: {aiJob?.error || errorMessage(aiError)}
             </Alert>
           )}
           {data && !data.comment_reasons?.ai_enabled && (
@@ -507,15 +504,11 @@ function CleanupPanel({ stats }: { stats?: BaseCleanupStats }) {
 }
 
 export function ControlPage() {
+  const queryClient = useQueryClient();
   const [dateFrom, setDateFrom] = useState(monthStart());
   const [dateTo, setDateTo] = useState(today());
   const [managerId, setManagerId] = useState("");
-  const [useAiForComments, setUseAiForComments] = useState(false);
   const params = { date_from: dateFrom || undefined, date_to: dateTo || undefined, manager_id: managerId || undefined };
-
-  useEffect(() => {
-    setUseAiForComments(false);
-  }, [dateFrom, dateTo, managerId]);
 
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: async () => (await api.get<User[]>("/users")).data });
   const managers = useMemo(() => users.filter((user) => user.role === "manager"), [users]);
@@ -523,12 +516,40 @@ export function ControlPage() {
     queryKey: ["manager-quality", dateFrom, dateTo, managerId],
     queryFn: async () => (await api.get<ManagerQualityRow[]>("/analytics/manager-quality", { params })).data
   });
-  const { data: refusals, isFetching: refusalsFetching, error: refusalsError } = useQuery({
-    queryKey: ["refusals", dateFrom, dateTo, managerId, useAiForComments],
-    queryFn: async () => (await api.get<RefusalAnalytics>("/analytics/refusals", { params: { ...params, use_ai: useAiForComments || undefined } })).data,
+  const { data: refusals } = useQuery({
+    queryKey: ["refusals", dateFrom, dateTo, managerId],
+    queryFn: async () => (await api.get<RefusalAnalytics>("/analytics/refusals", { params })).data,
     placeholderData: (previousData) => previousData,
     retry: false
   });
+  const { data: aiJobFromStatus, error: aiJobStatusError } = useQuery({
+    queryKey: ["refusal-ai-job", managerId],
+    queryFn: async () => (await api.get<AiAnalysisJobStatus>("/analytics/refusals/ai-analysis/status", { params: { manager_id: managerId || undefined } })).data,
+    refetchInterval: (query) => {
+      const status = (query.state.data as AiAnalysisJobStatus | undefined)?.status;
+      return status === "queued" || status === "running" ? 2000 : false;
+    }
+  });
+  const aiJob = aiJobFromStatus || refusals?.comment_reasons?.ai_job;
+  const isAiLoading = aiJob?.status === "queued" || aiJob?.status === "running";
+  const startAiAnalysis = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post<AiAnalysisJobStatus>("/analytics/refusals/ai-analysis", null, {
+          params: { manager_id: managerId || undefined, force: true }
+        })
+      ).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["refusal-ai-job", managerId] });
+      queryClient.invalidateQueries({ queryKey: ["refusals", dateFrom, dateTo, managerId] });
+    }
+  });
+
+  useEffect(() => {
+    if (aiJob?.status === "done") {
+      queryClient.invalidateQueries({ queryKey: ["refusals", dateFrom, dateTo, managerId] });
+    }
+  }, [aiJob?.status, dateFrom, dateTo, managerId, queryClient]);
   const { data: cleanup } = useQuery({
     queryKey: ["base-cleanup"],
     queryFn: async () => (await api.get<BaseCleanupStats>("/analytics/base-cleanup")).data
@@ -573,9 +594,10 @@ export function ControlPage() {
         <QualityPanel rows={quality} />
         <RefusalsPanel
           data={refusals}
-          onAiAnalyze={() => setUseAiForComments(true)}
-          isAiLoading={refusalsFetching && useAiForComments}
-          aiError={useAiForComments ? refusalsError : undefined}
+          onAiAnalyze={() => startAiAnalysis.mutate()}
+          isAiLoading={isAiLoading || startAiAnalysis.isPending}
+          aiJob={aiJob}
+          aiError={startAiAnalysis.error || aiJobStatusError}
         />
         <CleanupPanel stats={cleanup} />
       </Stack>

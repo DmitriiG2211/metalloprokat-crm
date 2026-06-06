@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from datetime import date, datetime, time, timezone
 
 import httpx
@@ -10,7 +11,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.deps import can_view_all, get_current_user, require_roles, request_meta
 from app.models import Client, ClientComment, DailyReport, ImportJob, Role, Status, Task, TaskStatus, User
 from app.routers.daily_reports import report_totals
@@ -19,6 +20,10 @@ from app.utils.normalization import normalize_email, normalize_phone, normalize_
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 settings = get_settings()
+AI_BATCH_SIZE = 120
+AI_BATCH_SECONDS = 35
+_ai_jobs_lock = threading.RLock()
+_ai_jobs: dict[str, dict] = {}
 
 
 def _month_start() -> date:
@@ -56,6 +61,86 @@ def _client_scope(user: User):
     if not can_view_all(user):
         stmt = stmt.where(Client.manager_id == user.id)
     return stmt
+
+
+def _ai_scope_key(user: User, manager_id: int | None = None) -> str:
+    if can_view_all(user):
+        return f"leader:{manager_id or 'all'}"
+    return f"manager:{user.id}"
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _seconds_since(value: datetime | None) -> int:
+    if not value:
+        return 0
+    return max(0, int((_utc_now() - value).total_seconds()))
+
+
+def _estimated_seconds(total: int) -> int:
+    if total <= 0:
+        return 0
+    batches = max(1, (total + AI_BATCH_SIZE - 1) // AI_BATCH_SIZE)
+    return max(90, batches * AI_BATCH_SECONDS)
+
+
+def _job_public(job: dict | None) -> dict:
+    if not job:
+        return {
+            "status": "idle",
+            "processed": 0,
+            "total": 0,
+            "progress": 0,
+            "elapsed_seconds": 0,
+            "estimated_total_seconds": 0,
+            "estimated_left_seconds": 0,
+            "error": None,
+        }
+    started_at = job.get("started_at")
+    elapsed = _seconds_since(started_at)
+    total = int(job.get("total") or 0)
+    processed = int(job.get("processed") or 0)
+    estimated_total = int(job.get("estimated_total_seconds") or _estimated_seconds(total))
+    estimated_left = max(0, estimated_total - elapsed) if job.get("status") in {"queued", "running"} else 0
+    progress = round((processed / total) * 100, 1) if total else 0
+    if job.get("status") == "running" and total:
+        progress = min(99, max(1, progress))
+    return {
+        "status": job.get("status", "idle"),
+        "processed": processed,
+        "total": total,
+        "progress": progress,
+        "elapsed_seconds": elapsed,
+        "estimated_total_seconds": estimated_total,
+        "estimated_left_seconds": estimated_left,
+        "started_at": started_at.isoformat() if started_at else None,
+        "updated_at": job.get("updated_at").isoformat() if job.get("updated_at") else None,
+        "completed_at": job.get("completed_at").isoformat() if job.get("completed_at") else None,
+        "error": job.get("error"),
+    }
+
+
+def _get_ai_job(job_key: str) -> dict | None:
+    with _ai_jobs_lock:
+        job = _ai_jobs.get(job_key)
+        return dict(job) if job else None
+
+
+def _set_ai_job(job_key: str, **values) -> None:
+    with _ai_jobs_lock:
+        job = _ai_jobs.setdefault(job_key, {})
+        job.update(values)
+        job["updated_at"] = _utc_now()
+
+
+def _job_result(job_key: str) -> dict | None:
+    with _ai_jobs_lock:
+        job = _ai_jobs.get(job_key)
+        if job and job.get("status") == "done" and isinstance(job.get("result"), dict):
+            return job["result"]
+    return None
 
 
 COMMENT_REASON_RULES = [
@@ -203,15 +288,17 @@ def _ai_comment_batch(items: list[dict]) -> dict[int, str]:
     return result
 
 
-def _ai_comment_categories(items: list[dict]) -> dict[int, str]:
+def _ai_comment_categories(items: list[dict], job_key: str | None = None) -> dict[int, str]:
     result: dict[int, str] = {}
-    batch_size = 120
+    batch_size = AI_BATCH_SIZE
     for start in range(0, len(items), batch_size):
         result.update(_ai_comment_batch(items[start : start + batch_size]))
+        if job_key:
+            _set_ai_job(job_key, processed=min(len(items), start + batch_size))
     return result
 
 
-def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None = None, use_ai: bool = False) -> dict:
+def _comment_classification_rows(db: Session, user: User, manager_id: int | None = None) -> tuple[int, int, list[dict]]:
     stmt = (
         select(Client)
         .options(joinedload(Client.comments), joinedload(Client.status), joinedload(Client.manager))
@@ -222,11 +309,6 @@ def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None
     elif not can_view_all(user):
         stmt = stmt.where(Client.manager_id == user.id)
     clients = db.scalars(stmt).unique().all()
-    buckets = {
-        key: {"key": key, "label": label, "count": 0, "examples": []}
-        for key, label, _ in COMMENT_REASON_RULES
-    }
-    buckets["other"] = {"key": "other", "label": "Прочее", "count": 0, "examples": []}
     clients_with_comments = 0
     classified_rows: list[dict] = []
 
@@ -239,30 +321,89 @@ def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None
         key, _ = _comment_reason(combined_comment)
         row = {"index": index, "client": client, "comment": combined_comment, "key": key}
         classified_rows.append(row)
+    return len(clients), clients_with_comments, classified_rows
 
-    ai_used = False
-    ai_items = [{"index": row["index"], "comment": row["comment"]} for row in classified_rows]
-    ai_suggestions = _ai_comment_categories(ai_items) if use_ai else {}
-    if ai_suggestions:
-        ai_used = True
+
+def _build_comment_reason_result(
+    total_clients: int,
+    clients_with_comments: int,
+    classified_rows: list[dict],
+    ai_suggestions: dict[int, str] | None = None,
+    ai_used: bool = False,
+) -> dict:
+    buckets = {
+        key: {"key": key, "label": label, "count": 0, "examples": []}
+        for key, label, _ in COMMENT_REASON_RULES
+    }
+    buckets["other"] = {"key": "other", "label": "Прочее", "count": 0, "examples": []}
+    ai_suggestions = ai_suggestions or {}
+    ai_candidate_count = sum(1 for row in classified_rows if row["key"] == "other")
 
     for row in classified_rows:
         key = row["key"] if row["key"] != "other" else ai_suggestions.get(row["index"], row["key"])
-        bucket = buckets[key]
+        bucket = buckets.get(key) or buckets["other"]
         bucket["count"] += 1
         if len(bucket["examples"]) < 5:
             bucket["examples"].append({"company": row["client"].company_name, "comment": row["comment"][:240]})
 
-    reasons = sorted(buckets.values(), key=lambda item: item["count"], reverse=True)
     return {
-        "total_clients": len(clients),
-        "total_dead_clients": len(clients),
+        "total_clients": total_clients,
+        "total_dead_clients": total_clients,
         "clients_with_comments": clients_with_comments,
         "ai_enabled": bool(settings.ollama_base_url and settings.ollama_api_key),
         "ai_used": ai_used,
-        "ai_candidates": len(ai_items),
-        "reasons": reasons,
+        "ai_candidates": ai_candidate_count,
+        "reasons": sorted(buckets.values(), key=lambda item: item["count"], reverse=True),
     }
+
+
+def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None = None, use_ai: bool = False) -> dict:
+    job_key = _ai_scope_key(user, manager_id)
+    cached = _job_result(job_key)
+    if cached:
+        result = dict(cached)
+        result["ai_job"] = _job_public(_get_ai_job(job_key))
+        return result
+
+    total_clients, clients_with_comments, classified_rows = _comment_classification_rows(db, user, manager_id)
+    result = _build_comment_reason_result(total_clients, clients_with_comments, classified_rows)
+    result["ai_job"] = _job_public(_get_ai_job(job_key))
+    return result
+
+
+def _run_ai_refusal_job(job_key: str, user_id: int, manager_id: int | None = None) -> None:
+    _set_ai_job(job_key, status="running", error=None, processed=0, started_at=_utc_now(), completed_at=None)
+    try:
+        with SessionLocal() as db:
+            user = db.get(User, user_id)
+            if not user:
+                raise RuntimeError("User not found")
+            total_clients, clients_with_comments, classified_rows = _comment_classification_rows(db, user, manager_id)
+            ai_items = [{"index": row["index"], "comment": row["comment"]} for row in classified_rows if row["key"] == "other"]
+            _set_ai_job(
+                job_key,
+                total=len(ai_items),
+                processed=0,
+                estimated_total_seconds=_estimated_seconds(len(ai_items)),
+            )
+            ai_suggestions = _ai_comment_categories(ai_items, job_key=job_key) if ai_items else {}
+            result = _build_comment_reason_result(
+                total_clients,
+                clients_with_comments,
+                classified_rows,
+                ai_suggestions=ai_suggestions,
+                ai_used=bool(settings.ollama_base_url and settings.ollama_api_key),
+            )
+            _set_ai_job(
+                job_key,
+                status="done",
+                processed=len(ai_items),
+                result=result,
+                completed_at=_utc_now(),
+                error=None,
+            )
+    except Exception as exc:
+        _set_ai_job(job_key, status="error", completed_at=_utc_now(), error=str(exc))
 
 
 def _reports_by_manager(db: Session, manager_ids: list[int], start: date, end: date) -> dict[int, list[DailyReport]]:
@@ -419,6 +560,47 @@ def refusal_analytics(
         "by_manager": by_manager,
         "comment_reasons": _dead_client_comment_reasons(db, user, manager_id, use_ai=use_ai),
     }
+
+
+@router.post("/refusals/ai-analysis")
+def start_refusal_ai_analysis(
+    manager_id: int | None = None,
+    force: bool = Query(False),
+    user: User = Depends(get_current_user),
+):
+    job_key = _ai_scope_key(user, manager_id)
+    if not settings.ollama_base_url or not settings.ollama_api_key:
+        _set_ai_job(job_key, status="disabled", error="Ollama is not configured", processed=0, total=0, started_at=None, completed_at=None)
+        return _job_public(_get_ai_job(job_key))
+
+    current = _get_ai_job(job_key)
+    if current and current.get("status") in {"queued", "running"}:
+        return _job_public(current)
+    if current and current.get("status") == "done" and not force:
+        return _job_public(current)
+
+    _set_ai_job(
+        job_key,
+        status="queued",
+        error=None,
+        processed=0,
+        total=0,
+        result=None,
+        started_at=_utc_now(),
+        completed_at=None,
+        estimated_total_seconds=0,
+    )
+    thread = threading.Thread(target=_run_ai_refusal_job, args=(job_key, user.id, manager_id), daemon=True)
+    thread.start()
+    return _job_public(_get_ai_job(job_key))
+
+
+@router.get("/refusals/ai-analysis/status")
+def refusal_ai_analysis_status(
+    manager_id: int | None = None,
+    user: User = Depends(get_current_user),
+):
+    return _job_public(_get_ai_job(_ai_scope_key(user, manager_id)))
 
 
 @router.get("/base-cleanup")
