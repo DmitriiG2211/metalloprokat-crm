@@ -36,6 +36,21 @@ export interface Client {
   updated_at: string;
 }
 
+export interface ClientHistoryEvent {
+  id: string;
+  type: "comment" | "task" | "transfer" | "audit" | string;
+  title: string;
+  description?: string | null;
+  actor?: string | null;
+  status?: string | null;
+  created_at: string;
+}
+
+export interface ClientHistory {
+  client_id: number;
+  events: ClientHistoryEvent[];
+}
+
 export interface Page<T> {
   items: T[];
   total: number;

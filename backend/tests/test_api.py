@@ -80,9 +80,19 @@ def test_search_and_task_flow():
     )
     assert task.status_code == 200, task.text
     manager_token = token("manager103", "103123")
+    comment = client.post(
+        f"/api/clients/{created['id']}/comments",
+        json={"comment_text": "РљРџ РѕС‚РїСЂР°РІР»РµРЅРѕ РЅР° РїРѕС‡С‚Сѓ"},
+        headers={"Authorization": f"Bearer {manager_token}"},
+    )
+    assert comment.status_code == 200, comment.text
     done = client.post(f"/api/tasks/{task.json()['id']}/complete", headers={"Authorization": f"Bearer {manager_token}"})
     assert done.status_code == 200
     assert done.json()["status"] == "done"
+    history = client.get(f"/api/clients/{created['id']}/history", headers={"Authorization": f"Bearer {admin}"})
+    assert history.status_code == 200, history.text
+    event_types = {event["type"] for event in history.json()["events"]}
+    assert {"comment", "task"} <= event_types
 
 
 def test_daily_report_flow_and_summary():

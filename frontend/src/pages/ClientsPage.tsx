@@ -1,7 +1,8 @@
-import { Add, Download, ExpandMore, Phone, Search } from "@mui/icons-material";
+import { Add, Download, ExpandMore, History, Phone, Search } from "@mui/icons-material";
 import {
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -27,17 +28,38 @@ import { useOutletContext } from "react-router-dom";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusChip } from "../components/StatusChip";
-import { Client, Page, Status, User } from "../types";
+import { Client, ClientHistory, Page, Status, User } from "../types";
 
 type ClientPatch = Partial<Pick<Client, "company_name" | "contact_person" | "phone" | "email" | "website" | "status_id" | "last_call_date" | "next_call_date">>;
 
 const CLIENTS_PAGE_SIZE = 50;
+const COMMENT_TEMPLATES = [
+  "Недозвон",
+  "Автоответчик",
+  "Не берут трубку",
+  "КП отправлено на почту",
+  "Перезвонить позже",
+  "Не закупают сейчас",
+  "Не работают с металлом",
+  "Сами продают металл",
+  "Есть свой поставщик",
+  "Контактный клиент"
+];
 
 const splitContacts = (value?: string | null) =>
   (value || "")
     .split(/\n|;|,(?=\s*(?:\+?\d|[\w.+-]+@))/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const formatDateTime = (value: string) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
 
 function EditableCell({
   value,
@@ -165,8 +187,23 @@ function ContactCell({ value, kind, onSave }: { value?: string | null; kind: "ph
   );
 }
 
+function CompanyCell({ client, onSave, onHistory }: { client: Client; onSave: (value: string) => void; onHistory: () => void }) {
+  return (
+    <Box className="company-cell">
+      <EditableCell width="100%" value={client.company_name} onSave={onSave} />
+      <Tooltip title="История касаний">
+        <IconButton className="company-history-button" size="small" onClick={onHistory}>
+          <History sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
+
 function CommentCell({ value, onSave }: { value?: string | null; onSave: (value: string) => void }) {
   const [draft, setDraft] = useState(value || "");
+  const [templateAnchor, setTemplateAnchor] = useState<HTMLButtonElement | null>(null);
+  const templatesOpen = Boolean(templateAnchor);
 
   useEffect(() => {
     setDraft(value || "");
@@ -180,6 +217,12 @@ function CommentCell({ value, onSave }: { value?: string | null; onSave: (value:
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.currentTarget.blur();
     }
+  };
+
+  const applyTemplate = (template: string) => {
+    const next = draft.trim() ? `${draft.trim()} // ${template}` : template;
+    setDraft(next);
+    setTemplateAnchor(null);
   };
 
   return (
@@ -198,6 +241,31 @@ function CommentCell({ value, onSave }: { value?: string | null; onSave: (value:
         fullWidth
         InputProps={{ disableUnderline: true }}
       />
+      <Button
+        className="comment-template-button"
+        size="small"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => setTemplateAnchor(event.currentTarget)}
+      >
+        Шаблон
+      </Button>
+      <Popover open={templatesOpen} anchorEl={templateAnchor} onClose={() => setTemplateAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
+        <Stack spacing={1} className="comment-template-menu">
+          <Typography variant="caption" fontWeight={900} color="text.secondary">
+            Быстрые комментарии
+          </Typography>
+          <Box className="comment-template-grid">
+            {COMMENT_TEMPLATES.map((template) => (
+              <Button key={template} size="small" onMouseDown={(event) => event.preventDefault()} onClick={() => applyTemplate(template)}>
+                {template}
+              </Button>
+            ))}
+          </Box>
+          <Button variant="contained" onClick={commit} disabled={!draft.trim()}>
+            Сохранить комментарий
+          </Button>
+        </Stack>
+      </Popover>
     </Box>
   );
 }
@@ -214,18 +282,20 @@ function MobileClientCard({
   client,
   statuses,
   saveField,
-  addComment
+  addComment,
+  openHistory
 }: {
   client: Client;
   statuses: Status[];
   saveField: (client: Client, patch: ClientPatch) => void;
   addComment: (id: number, comment: string) => void;
+  openHistory: (client: Client) => void;
 }) {
   return (
     <Paper className="glass-surface mobile-client-card" elevation={0}>
       <Stack spacing={1.25}>
         <Box className="mobile-card-head">
-          <EditableCell width="100%" value={client.company_name} onSave={(value) => saveField(client, { company_name: value })} />
+          <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => openHistory(client)} />
           <Typography variant="caption" sx={{ fontWeight: 900, color: "text.secondary" }}>
             {client.manager?.manager_number || client.manager?.login || "-"}
           </Typography>
@@ -288,6 +358,63 @@ function MobileClientCard({
   );
 }
 
+function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClose: () => void }) {
+  const { data, isFetching } = useQuery({
+    queryKey: ["client-history", client?.id],
+    queryFn: async () => (await api.get<ClientHistory>(`/clients/${client?.id}/history`)).data,
+    enabled: Boolean(client?.id)
+  });
+  const typeLabel = {
+    comment: "Комментарий",
+    task: "Задача",
+    transfer: "Передача",
+    audit: "Изменение"
+  } as Record<string, string>;
+
+  return (
+    <Dialog open={Boolean(client)} onClose={onClose} fullWidth maxWidth="md" PaperProps={{ className: "glass-surface", sx: { borderRadius: "8px" } }}>
+      <DialogTitle>
+        История касаний
+        {client && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.3 }}>
+            {client.company_name}
+          </Typography>
+        )}
+      </DialogTitle>
+      <DialogContent>
+        <Stack className="history-timeline" spacing={1}>
+          {isFetching && <Typography color="text.secondary">Загружаем историю...</Typography>}
+          {!isFetching && data?.events.length === 0 && <Typography color="text.secondary">История пока пустая.</Typography>}
+          {data?.events.map((event) => (
+            <Box className={`history-event ${event.type}`} key={event.id}>
+              <Box className="history-event-dot" />
+              <Box className="history-event-content">
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                  <Typography fontWeight={950}>{event.title}</Typography>
+                  <Chip size="small" label={typeLabel[event.type] || event.type} />
+                  {event.status && <Chip size="small" label={event.status} color="primary" variant="outlined" />}
+                </Stack>
+                {event.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4, whiteSpace: "pre-wrap" }}>
+                    {event.description}
+                  </Typography>
+                )}
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.6, display: "block" }}>
+                  {formatDateTime(event.created_at)}
+                  {event.actor ? ` · ${event.actor}` : ""}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Закрыть</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export function ClientsPage() {
   const { user } = useOutletContext<{ user: User }>();
   const queryClient = useQueryClient();
@@ -302,6 +429,7 @@ export function ClientsPage() {
   const [nextCallFrom, setNextCallFrom] = useState("");
   const [nextCallTo, setNextCallTo] = useState("");
   const [open, setOpen] = useState(false);
+  const [historyClient, setHistoryClient] = useState<Client | null>(null);
   const [form, setForm] = useState({ company_name: "", contact_person: "", phone: "", email: "", website: "", status_id: "", next_call_date: "" });
   const didInitFilters = useRef(false);
 
@@ -352,7 +480,10 @@ export function ClientsPage() {
 
   const addComment = useMutation({
     mutationFn: async ({ id, comment }: { id: number; comment: string }) => (await api.post(`/clients/${id}/comments`, { comment_text: comment })).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clients"] })
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client-history", variables.id] });
+    }
   });
 
   const create = useMutation({
@@ -454,7 +585,7 @@ export function ClientsPage() {
             {data?.items.map((client) => (
               <TableRow key={client.id} hover>
                 <ExcelCell width="15%">
-                  <EditableCell width="100%" value={client.company_name} onSave={(value) => saveField(client, { company_name: value })} />
+                  <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => setHistoryClient(client)} />
                 </ExcelCell>
                 <ExcelCell width="9%">
                   <EditableCell width="100%" value={client.contact_person} onSave={(value) => saveField(client, { contact_person: value })} />
@@ -515,6 +646,7 @@ export function ClientsPage() {
             statuses={statuses}
             saveField={saveField}
             addComment={(id, comment) => addComment.mutate({ id, comment })}
+            openHistory={setHistoryClient}
           />
         ))}
         {!isFetching && data?.items.length === 0 && (
@@ -557,6 +689,7 @@ export function ClientsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <ClientHistoryDialog client={historyClient} onClose={() => setHistoryClient(null)} />
     </>
   );
 }

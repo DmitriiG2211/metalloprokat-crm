@@ -679,7 +679,24 @@ a {
   line-height: 1.28;
 }
 
+.company-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 4px;
+  align-items: start;
+  min-width: 0;
+}
+
+.company-history-button.MuiIconButton-root {
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  color: var(--accent-strong);
+  background: rgba(229, 242, 255, 0.72);
+}
+
 .comment-cell {
+  position: relative;
   min-width: 0;
 }
 
@@ -693,6 +710,83 @@ a {
   max-height: 36px !important;
   overflow: hidden !important;
   resize: none;
+  padding-right: 58px !important;
+}
+
+.comment-template-button.MuiButton-root {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  min-width: 52px;
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 950;
+  color: var(--accent-strong);
+  background: rgba(229, 242, 255, 0.94);
+  box-shadow: none !important;
+}
+
+.comment-template-menu {
+  width: min(420px, calc(100dvw - 32px));
+  padding: 12px;
+}
+
+.comment-template-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.comment-template-grid .MuiButton-root {
+  min-height: 28px;
+  border-radius: 999px;
+  padding-inline: 10px;
+  color: var(--app-text);
+  background: rgba(241, 247, 255, 0.92);
+  box-shadow: none !important;
+}
+
+.history-timeline {
+  position: relative;
+  padding: 4px 0 8px;
+}
+
+.history-event {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.history-event-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(8, 119, 238, 0.1);
+}
+
+.history-event.task .history-event-dot {
+  background: #6f9472;
+}
+
+.history-event.transfer .history-event-dot {
+  background: #b07d62;
+}
+
+.history-event.audit .history-event-dot {
+  background: #8878a8;
+}
+
+.history-event-content {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(42, 68, 72, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.54);
 }
 
 .soft-divider {

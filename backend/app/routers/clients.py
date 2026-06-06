@@ -199,24 +199,115 @@ def add_comment(client_id: int, payload: CommentCreate, request: Request, db: Se
 @router.get("/{client_id}/history")
 def history(client_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     ensure_client_access(db, client_id, user)
-    audit = db.scalars(select(AuditLog).where(AuditLog.entity_type == "client", AuditLog.entity_id == client_id).order_by(AuditLog.created_at.desc())).all()
+    comments = db.scalars(
+        select(ClientComment)
+        .options(joinedload(ClientComment.author))
+        .where(ClientComment.client_id == client_id, ClientComment.deleted_at.is_(None))
+        .order_by(ClientComment.created_at.desc())
+    ).all()
+    tasks = db.scalars(
+        select(Task)
+        .options(joinedload(Task.creator), joinedload(Task.manager))
+        .where(Task.client_id == client_id)
+        .order_by(Task.created_at.desc())
+    ).all()
+    audit = db.scalars(
+        select(AuditLog)
+        .where(AuditLog.entity_type == "client", AuditLog.entity_id == client_id)
+        .order_by(AuditLog.created_at.desc())
+    ).all()
     transfers = db.scalars(select(Transfer).where(Transfer.client_id == client_id).order_by(Transfer.created_at.desc())).all()
-    return {
-        "audit": [
-            {"id": item.id, "action": item.action, "old_value": item.old_value, "new_value": item.new_value, "created_at": item.created_at}
-            for item in audit
-        ],
-        "transfers": [
+    user_ids = {item.user_id for item in audit if item.user_id}
+    for transfer in transfers:
+        user_ids.update([transfer.old_manager_id, transfer.new_manager_id, transfer.transferred_by])
+    users_by_id = {item.id: item for item in db.scalars(select(User).where(User.id.in_(user_ids))).all()} if user_ids else {}
+
+    def user_label(item: User | None) -> str | None:
+        if not item:
+            return None
+        return item.manager_number and f"Менеджер {item.manager_number}" or item.full_name or item.login
+
+    field_labels = {
+        "manager_id": "менеджер",
+        "company_name": "компания",
+        "contact_person": "контактное лицо",
+        "phone": "телефон",
+        "email": "почта",
+        "website": "сайт",
+        "status_id": "статус",
+        "last_call_date": "дата звонка",
+        "next_call_date": "дата перезвона",
+    }
+    task_status = {"new": "Новая", "in_progress": "В работе", "done": "Выполнена", "canceled": "Отменена"}
+    events = []
+    for comment in comments:
+        events.append(
             {
-                "id": item.id,
-                "old_manager_id": item.old_manager_id,
-                "new_manager_id": item.new_manager_id,
-                "transferred_by": item.transferred_by,
-                "reason": item.reason,
+                "id": f"comment-{comment.id}",
+                "type": "comment",
+                "title": "Комментарий",
+                "description": comment.comment_text,
+                "actor": user_label(comment.author),
+                "created_at": comment.created_at,
+            }
+        )
+    for task in tasks:
+        details = []
+        if task.description:
+            details.append(task.description)
+        if task.deadline:
+            details.append(f"Срок: {task.deadline}")
+        if task.manager_comment:
+            details.append(f"Комментарий менеджера: {task.manager_comment}")
+        events.append(
+            {
+                "id": f"task-{task.id}",
+                "type": "task",
+                "title": f"Задача: {task.title}",
+                "description": " · ".join(details),
+                "actor": user_label(task.creator),
+                "status": task_status.get(task.status, task.status),
+                "created_at": task.created_at,
+            }
+        )
+    for transfer in transfers:
+        old_manager = users_by_id.get(transfer.old_manager_id)
+        new_manager = users_by_id.get(transfer.new_manager_id)
+        actor = users_by_id.get(transfer.transferred_by)
+        events.append(
+            {
+                "id": f"transfer-{transfer.id}",
+                "type": "transfer",
+                "title": "Передача клиента",
+                "description": f"{user_label(old_manager) or 'Без менеджера'} → {user_label(new_manager) or 'Без менеджера'}. {transfer.reason}",
+                "actor": user_label(actor),
+                "created_at": transfer.created_at,
+            }
+        )
+    for item in audit:
+        if item.action in {"add_comment", "transfer_client"}:
+            continue
+        changed = list((item.new_value or {}).keys())
+        description = ", ".join(field_labels.get(key, key) for key in changed) if changed else None
+        title = {
+            "create_client": "Клиент создан",
+            "update_client": "Изменение клиента",
+            "delete_client": "Клиент отправлен в архив",
+        }.get(item.action, item.action)
+        events.append(
+            {
+                "id": f"audit-{item.id}",
+                "type": "audit",
+                "title": title,
+                "description": description,
+                "actor": user_label(users_by_id.get(item.user_id)) if item.user_id else None,
                 "created_at": item.created_at,
             }
-            for item in transfers
-        ],
+        )
+    events.sort(key=lambda item: item["created_at"], reverse=True)
+    return {
+        "client_id": client_id,
+        "events": events,
     }
 
 
