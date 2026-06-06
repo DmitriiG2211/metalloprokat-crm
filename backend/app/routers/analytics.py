@@ -43,7 +43,7 @@ def _managers(db: Session, user: User, manager_id: int | None = None) -> list[Us
 
 
 def _dead_status_condition():
-    return or_(Status.name.ilike("Мертв%"), Status.name.ilike("Мёртв%"))
+    return or_(Status.sort_order == 40, Status.name.ilike("Мертв%"), Status.name.ilike("Мёртв%"))
 
 
 def _client_scope(user: User):
