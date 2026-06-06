@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, time, timezone
 
 import httpx
@@ -144,11 +145,20 @@ COMMENT_REASON_RULES = [
 ]
 
 
+def _normalize_comment_text(text: str) -> tuple[str, str]:
+    normalized = re.sub(r"[^0-9a-zа-я]+", " ", text.casefold().replace("ё", "е"))
+    normalized = " ".join(normalized.split())
+    compact = normalized.replace(" ", "")
+    return normalized, compact
+
+
 def _comment_reason(text: str) -> tuple[str, str]:
-    normalized = " ".join(text.casefold().replace("ё", "е").split())
+    normalized, compact = _normalize_comment_text(text)
     for key, label, patterns in COMMENT_REASON_RULES:
-        if any(pattern.replace("ё", "е") in normalized for pattern in patterns):
-            return key, label
+        for pattern in patterns:
+            pattern_normalized, pattern_compact = _normalize_comment_text(pattern)
+            if pattern_normalized in normalized or pattern_compact in compact:
+                return key, label
     return "other", "Прочее"
 
 
@@ -237,7 +247,7 @@ def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None
         ai_used = True
 
     for row in classified_rows:
-        key = ai_suggestions.get(row["index"], row["key"])
+        key = row["key"] if row["key"] != "other" else ai_suggestions.get(row["index"], row["key"])
         bucket = buckets[key]
         bucket["count"] += 1
         if len(bucket["examples"]) < 5:

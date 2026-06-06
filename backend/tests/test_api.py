@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
+from app.routers.analytics import _comment_reason  # noqa: E402
 from app.seed import seed  # noqa: E402
 
 
@@ -153,3 +154,9 @@ def test_analytics_control_endpoints():
 
     cleanup = client.get(endpoints[2], headers={"Authorization": f"Bearer {admin}"}).json()
     assert {"total_clients", "duplicate_groups", "recent_imports"} <= set(cleanup.keys())
+
+
+def test_comment_reason_normalizes_no_answer_variants():
+    for comment in ["неберут. Недозвон", "не берут трубку", "Н.О.", "недоступен", "не-дозвон"]:
+        key, _ = _comment_reason(comment)
+        assert key == "no_answer"
