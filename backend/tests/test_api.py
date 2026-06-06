@@ -147,6 +147,8 @@ def test_analytics_control_endpoints():
 
     quality = client.get(endpoints[0], headers={"Authorization": f"Bearer {admin}"}).json()
     assert any(row["login"] == "manager103" for row in quality)
+    manager109 = next(row for row in quality if row["login"] == "manager109")
+    assert manager109["quality_score"] == 0
 
     refusals = client.get(endpoints[1], headers={"Authorization": f"Bearer {admin}"}).json()
     assert {"total", "reasons", "by_manager", "comment_reasons"} <= set(refusals.keys())

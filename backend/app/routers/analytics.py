@@ -341,11 +341,13 @@ def manager_quality(
         manager_reports = reports.get(manager.id, [])
         calls_total = sum(report_totals(report)["total_calls"] for report in manager_reports)
         reports_submitted = len({report.report_date for report in manager_reports})
-        report_score = min(25, round((reports_submitted / days) * 25))
-        task_score = 25 if task_total == 0 else round((task_done / task_total) * 25)
-        calls_score = min(25, round((calls_total / max(1, days * 30)) * 25))
-        cleanup_score = max(0, 25 - min(25, overdue_clients + task_overdue * 2))
-        quality_score = max(0, min(100, report_score + task_score + calls_score + cleanup_score))
+        has_period_activity = reports_submitted > 0 or calls_total > 0 or comments_count > 0 or task_done > 0
+        report_score = min(30, round((reports_submitted / days) * 30))
+        calls_score = min(35, round((calls_total / max(1, days * 30)) * 35))
+        comment_score = round(((clients_total - without_comment) / clients_total) * 20) if clients_total else 0
+        overdue_score = max(0, 10 - min(10, overdue_clients + task_overdue * 2)) if clients_total or task_total else 0
+        task_score = round((task_done / task_total) * 5) if task_total else 0
+        quality_score = max(0, min(100, report_score + calls_score + comment_score + overdue_score + task_score)) if has_period_activity else 0
         rows.append(
             {
                 "manager_id": manager.id,
