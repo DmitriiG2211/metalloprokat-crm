@@ -261,12 +261,12 @@ function RefusalsPanel({ data }: { data?: RefusalAnalytics }) {
         <Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }} justifyContent="space-between" sx={{ mb: 1 }}>
             <Typography fontWeight={900}>
-              По комментариям мертвых клиентов
+              По комментариям клиентов
             </Typography>
             <Chip
               className="glass-button"
               size="small"
-              label={`${data?.comment_reasons?.clients_with_comments ?? 0} из ${data?.comment_reasons?.total_dead_clients ?? 0}`}
+              label={`${data?.comment_reasons?.clients_with_comments ?? 0} из ${data?.comment_reasons?.total_clients ?? data?.comment_reasons?.total_dead_clients ?? 0}`}
             />
           </Stack>
           <Stack spacing={1.2}>
@@ -304,7 +304,7 @@ function RefusalsPanel({ data }: { data?: RefusalAnalytics }) {
               );
             })}
             {(!data?.comment_reasons || data.comment_reasons.reasons.every((reason) => reason.count === 0)) && (
-              <Typography color="text.secondary">Комментариев у мертвых клиентов пока не найдено.</Typography>
+              <Typography color="text.secondary">Комментариев с отказами пока не найдено.</Typography>
             )}
           </Stack>
         </Box>

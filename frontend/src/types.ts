@@ -157,6 +157,7 @@ export interface RefusalAnalytics {
   reasons: RefusalReasonRow[];
   by_manager: Array<Record<string, string | number>>;
   comment_reasons?: {
+    total_clients?: number;
     total_dead_clients: number;
     clients_with_comments: number;
     reasons: CommentReasonRow[];

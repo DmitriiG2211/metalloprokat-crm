@@ -152,8 +152,7 @@ def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None
     stmt = (
         select(Client)
         .options(joinedload(Client.comments), joinedload(Client.status), joinedload(Client.manager))
-        .join(Status, Status.id == Client.status_id)
-        .where(Client.deleted_at.is_(None), _dead_status_condition())
+        .where(Client.deleted_at.is_(None))
     )
     if can_view_all(user) and manager_id:
         stmt = stmt.where(Client.manager_id == manager_id)
@@ -181,6 +180,7 @@ def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None
 
     reasons = sorted(buckets.values(), key=lambda item: item["count"], reverse=True)
     return {
+        "total_clients": len(clients),
         "total_dead_clients": len(clients),
         "clients_with_comments": clients_with_comments,
         "reasons": reasons,
