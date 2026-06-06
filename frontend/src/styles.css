@@ -5,23 +5,22 @@ body,
 }
 
 :root {
-  --app-ink: #102033;
-  --app-muted: #5b6d83;
-  --app-border: rgba(255, 255, 255, 0.56);
-  --app-border-strong: rgba(255, 255, 255, 0.76);
-  --glass-bg: rgba(255, 255, 255, 0.48);
-  --glass-bg-strong: rgba(255, 255, 255, 0.68);
-  --glass-tint: rgba(232, 243, 255, 0.5);
-  --glass-shadow: 0 24px 70px rgba(13, 67, 142, 0.13);
-  --glass-shadow-strong: 0 34px 90px rgba(10, 73, 156, 0.18);
+  --app-ink: #1f2328;
+  --app-muted: #667085;
+  --app-border: #e5e7eb;
+  --app-border-strong: #d0d5dd;
+  --glass-bg: #ffffff;
+  --glass-bg-strong: #ffffff;
+  --glass-tint: #f9fafb;
+  --glass-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --glass-shadow-strong: 0 8px 24px rgba(16, 24, 40, 0.08);
   --accent: #0877ee;
-  --accent-strong: #0055c8;
+  --accent-strong: #0057c8;
   --accent-soft: rgba(8, 119, 238, 0.12);
-  --violet-soft: rgba(15, 156, 255, 0.1);
-  --success-soft: rgba(55, 151, 112, 0.12);
+  --success-soft: rgba(22, 163, 74, 0.12);
   --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 22px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
 * {
@@ -32,9 +31,7 @@ body {
   margin: 0;
   color: var(--app-ink);
   accent-color: var(--accent);
-  background:
-    linear-gradient(135deg, rgba(237, 245, 255, 0.98) 0%, rgba(249, 252, 255, 0.98) 42%, rgba(229, 241, 255, 0.98) 100%),
-    linear-gradient(90deg, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.06));
+  background: #f7f8fa;
 }
 
 body::before {
@@ -62,12 +59,12 @@ a {
 }
 
 .app-topbar {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.62) !important;
-  box-shadow: 0 12px 38px rgba(22, 50, 56, 0.08) !important;
+  border-bottom: 1px solid var(--app-border) !important;
+  box-shadow: none !important;
 }
 
 .app-topbar .MuiToolbar-root {
-  min-height: 68px;
+  min-height: 56px;
 }
 
 .brand-lockup {
@@ -78,9 +75,9 @@ a {
 }
 
 .brand-logo {
-  width: 156px;
-  max-width: 34vw;
-  height: 42px;
+  width: 132px;
+  max-width: 28vw;
+  height: 34px;
   object-fit: contain;
   object-position: left center;
   border-radius: 8px;
@@ -92,21 +89,67 @@ a {
 }
 
 .sidebar-panel {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.36)),
-    linear-gradient(135deg, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.05)) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.62) !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.5), 8px 0 24px rgba(13, 67, 142, 0.05);
+  background: #ffffff !important;
+  border-right: 1px solid var(--app-border) !important;
+  box-shadow: none;
+}
+
+.sidebar-workspace {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 8px 13px;
+}
+
+.workspace-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 950;
+  background: var(--accent);
+}
+
+.workspace-name {
+  overflow: hidden;
+  font-weight: 900 !important;
+  line-height: 1.15 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-meta {
+  color: var(--app-muted);
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+}
+
+.sidebar-section {
+  margin-bottom: 12px;
+}
+
+.sidebar-section-label {
+  margin: 8px 8px 5px !important;
+  color: var(--app-muted);
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: uppercase;
 }
 
 .sidebar-link {
   position: relative;
   overflow: hidden;
+  color: #344054 !important;
 }
 
 .sidebar-link::before {
   position: absolute;
-  inset: 1px auto 1px 1px;
+  inset: 7px auto 7px 3px;
   width: 3px;
   border-radius: 999px;
   content: "";
@@ -117,6 +160,16 @@ a {
 
 .sidebar-link.Mui-selected::before {
   opacity: 1;
+}
+
+.sidebar-link.Mui-selected {
+  color: var(--accent-strong) !important;
+  background: #eef6ff !important;
+  box-shadow: none !important;
+}
+
+.sidebar-link:hover {
+  background: #f3f4f6 !important;
 }
 
 .app-main {
@@ -142,25 +195,34 @@ a {
 }
 
 .glass-surface {
-  background: rgba(255, 255, 255, 0.84) !important;
-  border: 1px solid var(--app-border-strong) !important;
-  box-shadow: 0 10px 26px rgba(13, 67, 142, 0.07) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--app-border) !important;
+  box-shadow: var(--glass-shadow) !important;
 }
 
 .glass-surface:hover {
-  border-color: rgba(255, 255, 255, 0.86) !important;
+  border-color: var(--app-border-strong) !important;
 }
 
 .glass-button {
   color: var(--app-ink) !important;
-  background: rgba(255, 255, 255, 0.82) !important;
-  border: 1px solid rgba(255, 255, 255, 0.76) !important;
-  box-shadow: 0 5px 14px rgba(23, 47, 52, 0.08) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--app-border) !important;
+  box-shadow: none !important;
 }
 
 .glass-button:hover {
-  border-color: rgba(255, 255, 255, 0.92) !important;
-  box-shadow: 0 6px 16px rgba(23, 47, 52, 0.1) !important;
+  border-color: var(--app-border-strong) !important;
+  background: #f9fafb !important;
+}
+
+.topbar-search-button.MuiButton-root {
+  min-width: 190px;
+  justify-content: flex-start;
+  margin-inline: 10px 4px;
+  color: var(--app-muted);
+  border: 1px solid var(--app-border);
+  background: #f9fafb;
 }
 
 .global-switcher {
@@ -169,19 +231,17 @@ a {
   gap: 4px;
   margin-inline: 12px;
   padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 999px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.34)),
-    linear-gradient(145deg, rgba(8, 119, 238, 0.12), rgba(15, 156, 255, 0.07));
-  box-shadow: 0 6px 16px rgba(13, 67, 142, 0.08);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #f9fafb;
+  box-shadow: none;
 }
 
 .global-switch-button.MuiButton-root {
   min-width: auto;
   min-height: 34px;
   padding-inline: 14px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--app-muted);
   font-size: 12px;
   font-weight: 900;
@@ -192,10 +252,8 @@ a {
 .global-switch-button.MuiButton-root:hover,
 .global-switch-button.MuiButton-root.active {
   color: var(--accent-strong);
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 10px 22px rgba(8, 119, 238, 0.12);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 .sidebar-app-switcher {
@@ -203,9 +261,9 @@ a {
   gap: 6px;
   margin: 8px 8px 0;
   padding: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.68);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.34);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #f9fafb;
 }
 
 .login-shell {
@@ -227,7 +285,7 @@ a {
   content: "";
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.52), transparent 42%),
-    linear-gradient(315deg, rgba(8, 119, 238, 0.14), transparent 48%);
+    linear-gradient(315deg, rgba(8, 119, 238, 0.08), transparent 48%);
 }
 
 .login-card > * {
@@ -301,9 +359,142 @@ a {
   border-color: rgba(8, 119, 238, 0.24) !important;
 }
 
+.crm-command-center {
+  overflow: hidden;
+  border-color: #dbeafe !important;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #ffffff 56%, #eef6ff 100%) !important;
+}
+
+.crm-command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 18px;
+  align-items: center;
+}
+
+.crm-quick-actions {
+  flex-wrap: wrap;
+}
+
+.crm-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.crm-metric {
+  position: relative;
+  min-height: 120px;
+  overflow: hidden;
+}
+
+.crm-metric::after {
+  position: absolute;
+  inset: auto 14px 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  content: "";
+  opacity: 0.68;
+}
+
+.crm-metric-blue::after {
+  background: #0877ee;
+}
+
+.crm-metric-green::after {
+  background: #24885c;
+}
+
+.crm-metric-amber::after {
+  background: #b47512;
+}
+
+.crm-metric-red::after {
+  background: #ba4250;
+}
+
+.crm-metric-icon,
+.crm-object-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 8px;
+  color: var(--accent-strong);
+  background: #f9fafb;
+  box-shadow: none;
+}
+
+.crm-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.crm-panel {
+  min-width: 0;
+}
+
+.crm-list-row,
+.crm-manager-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 12px;
+  align-items: center;
+  min-height: 54px;
+  padding: 10px 11px;
+  border: 1px solid rgba(42, 68, 72, 0.08);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.crm-status-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(18, 33, 36, 0.16);
+}
+
+.crm-status-progress.MuiLinearProgress-root {
+  height: 7px;
+  border-radius: 999px;
+  background-color: rgba(23, 47, 52, 0.08);
+}
+
+.crm-status-progress .MuiLinearProgress-bar {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0877ee, #24885c);
+}
+
+.crm-object-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.crm-object-card {
+  min-height: 148px;
+}
+
+.crm-manager-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
 .filter-bar {
   content-visibility: auto;
   contain-intrinsic-size: auto 88px;
+  position: sticky;
+  top: 64px;
+  z-index: 4;
 }
 
 .filter-grid {
@@ -311,24 +502,26 @@ a {
 }
 
 .premium-table {
-  background: rgba(255, 255, 255, 0.2);
+  background: #ffffff;
 }
 
 .premium-table thead {
   position: sticky;
   top: 0;
   z-index: 2;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.64)),
-    linear-gradient(90deg, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.05));
+  background: #f9fafb;
 }
 
 .premium-table tbody tr {
-  transition: background 100ms ease;
+  transition: background 100ms ease, box-shadow 100ms ease;
 }
 
 .premium-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.58);
+  background: #f9fafb;
+}
+
+.premium-table .MuiTableCell-root {
+  border-bottom-color: #edf0f3;
 }
 
 .excel-sheet {
@@ -342,7 +535,7 @@ a {
 }
 
 .excel-table tbody tr {
-  height: 62px;
+  height: 54px;
 }
 
 .excel-table th:nth-child(1),
@@ -404,7 +597,7 @@ a {
 .excel-table .MuiTableCell-root {
   font-size: 12px;
   line-height: 1.25;
-  height: 62px;
+  height: 54px;
   overflow: hidden;
 }
 
@@ -413,10 +606,10 @@ a {
 }
 
 .excel-input .MuiInputBase-root {
-  min-height: 30px;
+  min-height: 28px;
   font-size: 12px;
   line-height: 1.25;
-  border-radius: 7px;
+  border-radius: 6px;
   padding: 0 4px;
   background: transparent;
   transition: background 140ms ease, box-shadow 140ms ease;
@@ -424,10 +617,8 @@ a {
 
 .excel-input .MuiInputBase-root:hover,
 .excel-input .MuiInputBase-root.Mui-focused {
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow:
-    inset 0 0 0 1px rgba(8, 119, 238, 0.34),
-    0 8px 18px rgba(13, 67, 142, 0.08);
+  background: #eef6ff;
+  box-shadow: inset 0 0 0 1px rgba(8, 119, 238, 0.34);
 }
 
 .excel-input input,
@@ -461,8 +652,8 @@ a {
 }
 
 .contact-inline-input textarea {
-  height: 32px !important;
-  max-height: 32px !important;
+  height: 30px !important;
+  max-height: 30px !important;
   overflow: hidden !important;
   resize: none;
 }
@@ -493,13 +684,13 @@ a {
 }
 
 .comment-inline-input .MuiInputBase-root {
-  min-height: 48px;
+  min-height: 42px;
   align-items: flex-start;
 }
 
 .comment-inline-input textarea {
-  height: 42px !important;
-  max-height: 42px !important;
+  height: 36px !important;
+  max-height: 36px !important;
   overflow: hidden !important;
   resize: none;
 }
@@ -649,9 +840,9 @@ a {
 .MuiPopover-paper,
 .MuiMenu-paper,
 .MuiDialog-paper {
-  background: rgba(255, 255, 255, 0.96) !important;
-  border: 1px solid rgba(255, 255, 255, 0.76) !important;
-  box-shadow: 0 14px 36px rgba(13, 67, 142, 0.12) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--app-border) !important;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.12) !important;
 }
 
 .MuiBackdrop-root {
@@ -698,12 +889,6 @@ a {
 }
 
 @supports (background: linear-gradient(in oklab, white, black)) {
-  body {
-    background:
-      linear-gradient(135deg in oklab, rgba(238, 248, 246, 0.96) 0%, rgba(248, 251, 249, 0.98) 42%, rgba(232, 244, 247, 0.98) 100%),
-      linear-gradient(90deg in oklab, rgba(8, 119, 238, 0.08), rgba(15, 156, 255, 0.06));
-  }
-
   .soft-divider,
   .metric-card::after,
   .sidebar-link::before {
@@ -740,6 +925,16 @@ a {
 }
 
 @media (max-width: 980px) {
+  .crm-command-grid,
+  .crm-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-metric-grid,
+  .crm-object-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
   .filter-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr)) !important;
   }
@@ -754,6 +949,20 @@ a {
 }
 
 @media (max-width: 760px) {
+  .crm-metric-grid,
+  .crm-object-grid,
+  .crm-manager-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-command-center {
+    margin-bottom: 12px !important;
+  }
+
+  .crm-quick-actions .MuiButton-root {
+    flex: 1 1 132px;
+  }
+
   .desktop-table {
     display: none !important;
   }
@@ -773,6 +982,10 @@ a {
   }
 
   .app-topbar .global-switcher {
+    display: none;
+  }
+
+  .topbar-search-button.MuiButton-root {
     display: none;
   }
 

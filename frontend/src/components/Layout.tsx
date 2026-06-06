@@ -9,6 +9,7 @@ import {
   Logout,
   Menu,
   Notifications,
+  Search,
   Settings,
   UploadFile
 } from "@mui/icons-material";
@@ -31,7 +32,7 @@ import {
   Typography
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { Client, Task, User } from "../types";
@@ -39,18 +40,26 @@ import { ErrorBoundary } from "./ErrorBoundary";
 
 const drawerWidth = 248;
 
+type MenuItemConfig = {
+  label: string;
+  path: string;
+  icon: ReactNode;
+  roles?: User["role"][];
+  section: "Работа" | "Администрирование";
+};
+
 const menu = [
-  { label: "Главная", path: "/", icon: <Dashboard /> },
-  { label: "Клиенты", path: "/clients", icon: <BackupTable /> },
-  { label: "Напоминания", path: "/reminders", icon: <EventRepeat /> },
-  { label: "Задачи", path: "/tasks", icon: <Assignment /> },
-  { label: "Импорт Excel", path: "/import", icon: <UploadFile />, roles: ["admin", "director"] },
-  { label: "Статусы", path: "/statuses", icon: <Settings />, roles: ["admin", "director"] },
-  { label: "Пользователи", path: "/users", icon: <Groups />, roles: ["admin", "director"] },
-  { label: "Отчет", path: "/reports", icon: <Assessment /> },
-  { label: "Журнал", path: "/audit", icon: <History />, roles: ["admin", "director"] },
-  { label: "Настройки", path: "/settings", icon: <Settings />, roles: ["admin", "director"] }
-];
+  { label: "Рабочий стол", path: "/", icon: <Dashboard />, section: "Работа" },
+  { label: "Клиенты", path: "/clients", icon: <BackupTable />, section: "Работа" },
+  { label: "Напоминания", path: "/reminders", icon: <EventRepeat />, section: "Работа" },
+  { label: "Задачи", path: "/tasks", icon: <Assignment />, section: "Работа" },
+  { label: "Отчет", path: "/reports", icon: <Assessment />, section: "Работа" },
+  { label: "Импорт Excel", path: "/import", icon: <UploadFile />, roles: ["admin", "director"], section: "Администрирование" },
+  { label: "Статусы", path: "/statuses", icon: <Settings />, roles: ["admin", "director"], section: "Администрирование" },
+  { label: "Пользователи", path: "/users", icon: <Groups />, roles: ["admin", "director"], section: "Администрирование" },
+  { label: "Журнал", path: "/audit", icon: <History />, roles: ["admin", "director"], section: "Администрирование" },
+  { label: "Настройки", path: "/settings", icon: <Settings />, roles: ["admin", "director"], section: "Администрирование" }
+] satisfies MenuItemConfig[];
 
 const todayIso = () => {
   const date = new Date();
@@ -161,7 +170,9 @@ export function Layout({ user }: { user: User }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const visibleMenu = menu.filter((item) => !item.roles || item.roles.includes(user.role));
+  const visibleMenu = menu.filter((item) => !item.roles || (item.roles as readonly User["role"][]).includes(user.role));
+  const currentItem = visibleMenu.find((item) => item.path === location.pathname) || visibleMenu[0];
+  const sections = ["Работа", "Администрирование"] as const;
 
   const logout = () => {
     localStorage.removeItem("crm_token");
@@ -171,36 +182,47 @@ export function Layout({ user }: { user: User }) {
 
   const navList = (
     <Box sx={{ overflow: "auto", p: 1 }}>
-      <List>
-        {visibleMenu.map((item) => (
-          <ListItemButton
-            className="sidebar-link"
-            component={RouterLink}
-            to={item.path}
-            key={item.path}
-            selected={location.pathname === item.path}
-            onClick={() => setMobileOpen(false)}
-            sx={{
-              borderRadius: "8px",
-              mb: 0.75,
-              minHeight: 48,
-              px: 1.4,
-              transition: "background 120ms ease, color 120ms ease",
-              "&.Mui-selected": {
-                bgcolor: "rgba(255,255,255,0.74)",
-                boxShadow: "inset 3px 0 0 rgba(8,119,238,0.42)",
-                color: "primary.dark"
-              },
-              "&:hover": { bgcolor: "rgba(255,255,255,0.6)" },
-              "& .MuiListItemIcon-root": { minWidth: 38, color: "inherit" },
-              "& .MuiListItemText-primary": { fontWeight: 800 }
-            }}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} />
-          </ListItemButton>
-        ))}
-      </List>
+      <Box className="sidebar-workspace">
+        <Box className="workspace-mark">М</Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography className="workspace-name">Мегаполис</Typography>
+          <Typography className="workspace-meta">CRM workspace</Typography>
+        </Box>
+      </Box>
+      {sections.map((section) => {
+        const sectionItems = visibleMenu.filter((item) => item.section === section);
+        if (sectionItems.length === 0) return null;
+        return (
+          <Box key={section} className="sidebar-section">
+            <Typography className="sidebar-section-label">{section}</Typography>
+            <List disablePadding>
+              {sectionItems.map((item) => (
+                <ListItemButton
+                  className="sidebar-link"
+                  component={RouterLink}
+                  to={item.path}
+                  key={item.path}
+                  selected={location.pathname === item.path}
+                  onClick={() => setMobileOpen(false)}
+                  sx={{
+                    borderRadius: "8px",
+                    mb: 0.25,
+                    minHeight: 36,
+                    px: 1,
+                    py: 0.55,
+                    transition: "background 120ms ease, color 120ms ease",
+                    "& .MuiListItemIcon-root": { minWidth: 30, color: "inherit" },
+                    "& .MuiListItemText-primary": { fontWeight: 700, fontSize: 14 }
+                  }}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              ))}
+            </List>
+          </Box>
+        );
+      })}
       <Box className="sidebar-app-switcher">
         <Button className="global-switch-button active" href="/" size="small">
           CRM
@@ -215,16 +237,19 @@ export function Layout({ user }: { user: User }) {
   return (
     <Box className="app-shell" sx={{ display: "flex", minHeight: "100vh" }}>
       <AppBar className="app-topbar" position="fixed" elevation={0} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ bgcolor: "rgba(255,255,255,0.9)", color: "text.primary" }}>
+        <Toolbar sx={{ bgcolor: "background.paper", color: "text.primary" }}>
           <IconButton className="glass-button mobile-menu-button" onClick={() => setMobileOpen(true)} sx={{ mr: 1, display: { md: "none" } }} aria-label="Menu">
             <Menu />
           </IconButton>
           <Box className="brand-lockup" sx={{ flexGrow: 1 }}>
             <Box component="img" className="brand-logo" src="/logo.jpg" alt="Мегаполис" />
             <Typography className="brand-title" variant="h6" sx={{ fontWeight: 900 }}>
-              CRM Мегаполис
+              {currentItem?.label || "CRM Мегаполис"}
             </Typography>
           </Box>
+          <Button className="topbar-search-button" component={RouterLink} to="/clients" startIcon={<Search />} size="small">
+            Поиск клиентов
+          </Button>
           <Box className="global-switcher" aria-label="Переключение между разделами">
             <Button className="global-switch-button active" href="/" size="small">
               CRM

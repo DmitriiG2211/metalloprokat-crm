@@ -12,13 +12,13 @@ const theme = createTheme(
   {
     palette: {
       mode: "light",
-      primary: { main: "#0877ee", dark: "#0055c8", light: "#ddebff" },
-      secondary: { main: "#0f9cff", dark: "#0877ee", light: "#e7f4ff" },
-      background: { default: "#edf5ff", paper: "rgba(255,255,255,0.72)" },
-      success: { main: "#24885c", light: "#ddf6ea" },
-      warning: { main: "#b47512", light: "#fff0cc" },
-      error: { main: "#ba4250", light: "#ffe1e5" },
-      text: { primary: "#102033", secondary: "#5b6d83" }
+      primary: { main: "#0877ee", dark: "#0057c8", light: "#e8f2ff" },
+      secondary: { main: "#1f2937", dark: "#111827", light: "#f3f4f6" },
+      background: { default: "#f7f8fa", paper: "#ffffff" },
+      success: { main: "#16a34a", light: "#dcfce7" },
+      warning: { main: "#d97706", light: "#fffbeb" },
+      error: { main: "#dc2626", light: "#fee2e2" },
+      text: { primary: "#1f2328", secondary: "#667085" }
     },
     shape: { borderRadius: 8 },
     typography: {
@@ -32,8 +32,7 @@ const theme = createTheme(
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            background:
-              "linear-gradient(135deg, rgba(237,245,255,0.98) 0%, rgba(249,252,255,0.98) 42%, rgba(229,241,255,0.98) 100%)"
+            background: "#f7f8fa"
           }
         }
       },
@@ -41,8 +40,8 @@ const theme = createTheme(
         defaultProps: { disableElevation: true },
         styleOverrides: {
           root: {
-            minHeight: 42,
-            borderRadius: 14,
+            minHeight: 36,
+            borderRadius: 8,
             fontWeight: 800,
             letterSpacing: 0,
             transition: "background 120ms ease, border-color 120ms ease",
@@ -53,16 +52,16 @@ const theme = createTheme(
           },
           contained: {
             color: "#ffffff",
-            background: "linear-gradient(135deg, rgba(8,119,238,0.98), rgba(15,156,255,0.94))",
-            boxShadow: "0 8px 20px rgba(8, 119, 238, 0.18)",
+            background: "#0877ee",
+            boxShadow: "0 1px 2px rgba(8, 119, 238, 0.18)",
             "&:hover": {
-              boxShadow: "0 10px 24px rgba(8, 119, 238, 0.20)"
+              background: "#0057c8",
+              boxShadow: "0 2px 6px rgba(8, 119, 238, 0.20)"
             }
           },
           outlined: {
-            borderColor: "rgba(255,255,255,0.74)",
-            background: "rgba(255,255,255,0.76)",
-            boxShadow: "0 4px 12px rgba(30, 57, 63, 0.08)"
+            borderColor: "#d0d5dd",
+            background: "#ffffff"
           }
         }
       },
@@ -70,8 +69,8 @@ const theme = createTheme(
         styleOverrides: {
           root: {
             backgroundImage: "none",
-            border: "1px solid rgba(255,255,255,0.66)",
-            boxShadow: "0 10px 28px rgba(13, 67, 142, 0.08)"
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 1px 2px rgba(16, 24, 40, 0.04)"
           }
         }
       },
@@ -79,12 +78,11 @@ const theme = createTheme(
         styleOverrides: {
           root: {
             "& .MuiOutlinedInput-root": {
-              borderRadius: 14,
-              background: "rgba(255,255,255,0.72)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
-              "& fieldset": { borderColor: "rgba(22, 61, 66, 0.14)" },
-              "&:hover fieldset": { borderColor: "rgba(8, 119, 238, 0.38)" },
-              "&.Mui-focused fieldset": { borderColor: "rgba(8, 119, 238, 0.64)" }
+              borderRadius: 8,
+              background: "#ffffff",
+              "& fieldset": { borderColor: "#d0d5dd" },
+              "&:hover fieldset": { borderColor: "#98a2b3" },
+              "&.Mui-focused fieldset": { borderColor: "#0877ee" }
             }
           }
         }
@@ -92,13 +90,13 @@ const theme = createTheme(
       MuiTableCell: {
         styleOverrides: {
           root: { whiteSpace: "nowrap", borderBottom: "1px solid rgba(38, 62, 66, 0.08)" },
-          head: { color: "#53676a", fontSize: 11.5, fontWeight: 850, textTransform: "uppercase" }
+          head: { color: "#667085", fontSize: 11.5, fontWeight: 850, textTransform: "uppercase" }
         }
       },
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            background: "rgba(255,255,255,0.92)"
+            background: "#ffffff"
           }
         }
       },
@@ -113,10 +111,10 @@ const theme = createTheme(
       MuiPaginationItem: {
         styleOverrides: {
           root: {
-            borderRadius: 12,
+            borderRadius: 8,
             "&.Mui-selected": {
               color: "#fff",
-              background: "linear-gradient(135deg, #0877ee, #0f9cff)"
+              background: "#0877ee"
             }
           }
         }
