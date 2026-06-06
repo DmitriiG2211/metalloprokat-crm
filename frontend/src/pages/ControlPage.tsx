@@ -52,6 +52,18 @@ const weekStart = () => {
   return toIsoDate(date);
 };
 const yearStart = () => `${new Date().getFullYear()}-01-01`;
+const formatDuration = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const restSeconds = safeSeconds % 60;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    return `${hours} ч ${restMinutes} мин`;
+  }
+  if (minutes > 0) return `${minutes} мин ${String(restSeconds).padStart(2, "0")} сек`;
+  return `${restSeconds} сек`;
+};
 
 const managerColors = ["#5b7fa6", "#6f9472", "#b07d62", "#8878a8", "#5f9a9a", "#b58a52", "#9a6f83", "#7f8c8d"];
 
@@ -243,6 +255,24 @@ function RefusalsPanel({
 }) {
   const max = Math.max(1, ...(data?.reasons.map((reason) => reason.count) || [0]));
   const commentMax = Math.max(1, ...(data?.comment_reasons?.reasons.map((reason) => reason.count) || [0]));
+  const [aiElapsedSeconds, setAiElapsedSeconds] = useState(0);
+  const aiCandidates = data?.comment_reasons?.ai_candidates ?? data?.comment_reasons?.clients_with_comments ?? 0;
+  const estimatedTotalSeconds = aiCandidates > 0 ? Math.max(90, Math.ceil((aiCandidates / 120) * 35)) : 240;
+  const estimatedLeftSeconds = Math.max(0, estimatedTotalSeconds - aiElapsedSeconds);
+  const aiProgress = Math.min(96, Math.max(8, (aiElapsedSeconds / estimatedTotalSeconds) * 100));
+
+  useEffect(() => {
+    if (!isAiLoading) {
+      setAiElapsedSeconds(0);
+      return undefined;
+    }
+    setAiElapsedSeconds(0);
+    const intervalId = window.setInterval(() => {
+      setAiElapsedSeconds((value) => value + 1);
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [isAiLoading]);
+
   return (
     <Paper className="glass-surface control-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
       <SectionTitle icon={<WarningAmber />} title="Причины отказов и аналитика" subtitle="Откуда теряются контакты по ежедневным отчетам" />
@@ -293,7 +323,15 @@ function RefusalsPanel({
           </Stack>
           {isAiLoading && (
             <Alert severity="info" sx={{ mb: 1 }}>
-              AI анализирует все комментарии. На большой базе это может занять несколько минут.
+              <Stack spacing={0.8}>
+                <Typography variant="body2" fontWeight={800}>
+                  AI анализирует все комментарии. Прошло: {formatDuration(aiElapsedSeconds)}. Примерно осталось: {formatDuration(estimatedLeftSeconds)}.
+                </Typography>
+                <LinearProgress variant="determinate" value={aiProgress} />
+                <Typography variant="caption" color="text.secondary">
+                  Оценка примерная: время зависит от ответа AI-сервера и количества комментариев ({aiCandidates} шт.).
+                </Typography>
+              </Stack>
             </Alert>
           )}
           {Boolean(aiError) && (
