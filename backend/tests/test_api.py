@@ -148,7 +148,8 @@ def test_analytics_control_endpoints():
     assert any(row["login"] == "manager103" for row in quality)
 
     refusals = client.get(endpoints[1], headers={"Authorization": f"Bearer {admin}"}).json()
-    assert {"total", "reasons", "by_manager"} <= set(refusals.keys())
+    assert {"total", "reasons", "by_manager", "comment_reasons"} <= set(refusals.keys())
+    assert {"total_dead_clients", "clients_with_comments", "reasons"} <= set(refusals["comment_reasons"].keys())
 
     cleanup = client.get(endpoints[2], headers={"Authorization": f"Bearer {admin}"}).json()
     assert {"total_clients", "duplicate_groups", "recent_imports"} <= set(cleanup.keys())

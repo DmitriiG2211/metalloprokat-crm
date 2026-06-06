@@ -145,10 +145,22 @@ export interface RefusalReasonRow {
   share: number;
 }
 
+export interface CommentReasonRow {
+  key: string;
+  label: string;
+  count: number;
+  examples: Array<{ company: string; comment: string }>;
+}
+
 export interface RefusalAnalytics {
   total: number;
   reasons: RefusalReasonRow[];
   by_manager: Array<Record<string, string | number>>;
+  comment_reasons?: {
+    total_dead_clients: number;
+    clients_with_comments: number;
+    reasons: CommentReasonRow[];
+  };
 }
 
 export interface BaseCleanupStats {

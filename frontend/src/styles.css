@@ -980,6 +980,34 @@ a {
   border-bottom: none;
 }
 
+.refusal-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1.15fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.comment-reason-card {
+  padding: 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.comment-reason-main {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.comment-reason-example {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: #f9fafb;
+}
+
 .cleanup-grid {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
@@ -1114,6 +1142,7 @@ a {
   }
 
   .control-filter-grid,
+  .refusal-analytics-grid,
   .cleanup-grid {
     grid-template-columns: 1fr;
   }
@@ -1290,7 +1319,8 @@ a {
   .report-line.compact,
   .report-bar-row,
   .motivation-row,
-  .refusal-row {
+  .refusal-row,
+  .comment-reason-example {
     grid-template-columns: 1fr;
   }
 

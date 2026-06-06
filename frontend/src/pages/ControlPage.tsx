@@ -228,29 +228,87 @@ function QualityPanel({ rows }: { rows: ManagerQualityRow[] }) {
 
 function RefusalsPanel({ data }: { data?: RefusalAnalytics }) {
   const max = Math.max(1, ...(data?.reasons.map((reason) => reason.count) || [0]));
+  const commentMax = Math.max(1, ...(data?.comment_reasons?.reasons.map((reason) => reason.count) || [0]));
   return (
     <Paper className="glass-surface control-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
       <SectionTitle icon={<WarningAmber />} title="Причины отказов и аналитика" subtitle="Откуда теряются контакты по ежедневным отчетам" />
-      <Stack spacing={1.2}>
-        {data?.reasons.map((reason, index) => {
-          const color = managerColors[index % managerColors.length];
-          return (
-            <Box className="refusal-row" key={reason.key}>
-              <Box>
-                <Typography fontWeight={850}>{reason.label}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {reason.share}% от всех причин
-                </Typography>
-              </Box>
-              <Box className="report-bar-track">
-                <Box className="report-bar-fill" sx={{ width: `${Math.max(4, (reason.count / max) * 100)}%`, background: color }} />
-              </Box>
-              <Typography fontWeight={950}>{reason.count}</Typography>
-            </Box>
-          );
-        })}
-        {(!data || data.reasons.every((reason) => reason.count === 0)) && <Typography color="text.secondary">Причин отказов за период пока нет.</Typography>}
-      </Stack>
+      <Box className="refusal-analytics-grid">
+        <Box>
+          <Typography fontWeight={900} sx={{ mb: 1 }}>
+            По ежедневным отчетам
+          </Typography>
+          <Stack spacing={1.2}>
+            {data?.reasons.map((reason, index) => {
+              const color = managerColors[index % managerColors.length];
+              return (
+                <Box className="refusal-row" key={reason.key}>
+                  <Box>
+                    <Typography fontWeight={850}>{reason.label}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {reason.share}% от всех причин
+                    </Typography>
+                  </Box>
+                  <Box className="report-bar-track">
+                    <Box className="report-bar-fill" sx={{ width: `${Math.max(4, (reason.count / max) * 100)}%`, background: color }} />
+                  </Box>
+                  <Typography fontWeight={950}>{reason.count}</Typography>
+                </Box>
+              );
+            })}
+            {(!data || data.reasons.every((reason) => reason.count === 0)) && <Typography color="text.secondary">Причин отказов за период пока нет.</Typography>}
+          </Stack>
+        </Box>
+        <Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }} justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography fontWeight={900}>
+              По комментариям мертвых клиентов
+            </Typography>
+            <Chip
+              className="glass-button"
+              size="small"
+              label={`${data?.comment_reasons?.clients_with_comments ?? 0} из ${data?.comment_reasons?.total_dead_clients ?? 0}`}
+            />
+          </Stack>
+          <Stack spacing={1.2}>
+            {data?.comment_reasons?.reasons.map((reason, index) => {
+              const color = managerColors[(index + 2) % managerColors.length];
+              return (
+                <Box className="comment-reason-card" key={reason.key}>
+                  <Box className="refusal-row comment-reason-main">
+                    <Box>
+                      <Typography fontWeight={850}>{reason.label}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        клиентов: {reason.count}
+                      </Typography>
+                    </Box>
+                    <Box className="report-bar-track">
+                      <Box className="report-bar-fill" sx={{ width: `${Math.max(4, (reason.count / commentMax) * 100)}%`, background: color }} />
+                    </Box>
+                    <Typography fontWeight={950}>{reason.count}</Typography>
+                  </Box>
+                  {reason.examples.length > 0 && (
+                    <Stack spacing={0.6} sx={{ mt: 0.85 }}>
+                      {reason.examples.slice(0, 3).map((example) => (
+                        <Box className="comment-reason-example" key={`${reason.key}-${example.company}-${example.comment}`}>
+                          <Typography variant="caption" fontWeight={900}>
+                            {example.company}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {example.comment}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+              );
+            })}
+            {(!data?.comment_reasons || data.comment_reasons.reasons.every((reason) => reason.count === 0)) && (
+              <Typography color="text.secondary">Комментариев у мертвых клиентов пока не найдено.</Typography>
+            )}
+          </Stack>
+        </Box>
+      </Box>
     </Paper>
   );
 }

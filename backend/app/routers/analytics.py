@@ -4,7 +4,7 @@ from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import can_view_all, get_current_user, require_roles, request_meta
@@ -51,6 +51,140 @@ def _client_scope(user: User):
     if not can_view_all(user):
         stmt = stmt.where(Client.manager_id == user.id)
     return stmt
+
+
+COMMENT_REASON_RULES = [
+    (
+        "no_answer",
+        "Автоответчик / не отвечают / недоступен",
+        [
+            "автоответ",
+            "н.о",
+            "н/о",
+            "не отвечает",
+            "не отвечают",
+            "не ответил",
+            "не ответили",
+            "нет ответа",
+            "не доступ",
+            "недоступ",
+            "абонент",
+            "не дозвон",
+            "не дозвони",
+            "не берет",
+            "не берут",
+            "трубку не",
+            "занято",
+            "сбрасы",
+            "тишина",
+        ],
+    ),
+    (
+        "not_buying",
+        "Не закупают / нет потребности",
+        [
+            "не закуп",
+            "не покуп",
+            "нет потреб",
+            "потребности нет",
+            "не интересно",
+            "не интерес",
+            "не нужно",
+            "не требуется",
+            "не нуж",
+            "нет заяв",
+            "нет заказ",
+        ],
+    ),
+    (
+        "sells_metal",
+        "Сами продают металл",
+        [
+            "сами прода",
+            "сам прода",
+            "продают металл",
+            "продает металл",
+            "продажа метал",
+            "продаём металл",
+            "продаем металл",
+            "металлобаза",
+            "конкурент",
+        ],
+    ),
+    (
+        "not_metal",
+        "Не работают с металлом",
+        [
+            "не работ с метал",
+            "не работают с метал",
+            "не работает с метал",
+            "не металл",
+            "другой профиль",
+            "не занимаются метал",
+            "не занимается метал",
+        ],
+    ),
+    (
+        "email_only",
+        "Слили в почту",
+        [
+            "в почту",
+            "на почту",
+            "скинуть почт",
+            "скинуть на поч",
+            "отправить на поч",
+            "пишите на поч",
+            "только почт",
+        ],
+    ),
+]
+
+
+def _comment_reason(text: str) -> tuple[str, str]:
+    normalized = " ".join(text.casefold().replace("ё", "е").split())
+    for key, label, patterns in COMMENT_REASON_RULES:
+        if any(pattern.replace("ё", "е") in normalized for pattern in patterns):
+            return key, label
+    return "other", "Прочее"
+
+
+def _dead_client_comment_reasons(db: Session, user: User, manager_id: int | None = None) -> dict:
+    stmt = (
+        select(Client)
+        .options(joinedload(Client.comments), joinedload(Client.status), joinedload(Client.manager))
+        .join(Status, Status.id == Client.status_id)
+        .where(Client.deleted_at.is_(None), _dead_status_condition())
+    )
+    if can_view_all(user) and manager_id:
+        stmt = stmt.where(Client.manager_id == manager_id)
+    elif not can_view_all(user):
+        stmt = stmt.where(Client.manager_id == user.id)
+    clients = db.scalars(stmt).unique().all()
+    buckets = {
+        key: {"key": key, "label": label, "count": 0, "examples": []}
+        for key, label, _ in COMMENT_REASON_RULES
+    }
+    buckets["other"] = {"key": "other", "label": "Прочее", "count": 0, "examples": []}
+    clients_with_comments = 0
+
+    for client in clients:
+        comments = [comment.comment_text.strip() for comment in client.comments if comment.deleted_at is None and comment.comment_text.strip()]
+        if not comments:
+            continue
+        clients_with_comments += 1
+        combined_comment = " // ".join(comments[-3:])
+        key, _ = _comment_reason(combined_comment)
+        bucket = buckets[key]
+        bucket["count"] += 1
+        if len(bucket["examples"]) < 5:
+            bucket["examples"].append({"company": client.company_name, "comment": combined_comment[:240]})
+
+    reasons = sorted(buckets.values(), key=lambda item: item["count"], reverse=True)
+    return {
+        "total_dead_clients": len(clients),
+        "clients_with_comments": clients_with_comments,
+        "reasons": reasons,
+    }
 
 
 def _reports_by_manager(db: Session, manager_ids: list[int], start: date, end: date) -> dict[int, list[DailyReport]]:
@@ -198,7 +332,12 @@ def refusal_analytics(
         {"key": key, "label": label, "count": totals[key], "share": round((totals[key] / total) * 100, 1) if total else 0}
         for key, label in reason_keys
     ]
-    return {"total": total, "reasons": reasons, "by_manager": by_manager}
+    return {
+        "total": total,
+        "reasons": reasons,
+        "by_manager": by_manager,
+        "comment_reasons": _dead_client_comment_reasons(db, user, manager_id),
+    }
 
 
 @router.get("/base-cleanup")
