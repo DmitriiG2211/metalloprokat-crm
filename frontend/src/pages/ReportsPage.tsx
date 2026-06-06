@@ -53,12 +53,10 @@ const weekStart = () => {
   return toIsoDate(date);
 };
 
-const managerPalette = ["#0877ee", "#0f9cff", "#0055c8", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0f766e"];
+const managerPalette = ["#5b7fa6", "#6f9472", "#b07d62", "#8878a8", "#5f9a9a", "#b58a52", "#9a6f83", "#7f8c8d"];
 
-function managerColor(row: DailyReportSummaryRow) {
-  const source = row.manager_number || row.login || String(row.manager_id);
-  const hash = [...source].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return managerPalette[hash % managerPalette.length];
+function managerColor(index: number) {
+  return managerPalette[index % managerPalette.length];
 }
 
 const numericKeys: NumericKey[] = [
@@ -340,9 +338,9 @@ function BarChart({ rows, metric, label }: { rows: DailyReportSummaryRow[]; metr
         {label}
       </Typography>
       <Stack spacing={1}>
-        {rows.map((row) => {
+        {rows.map((row, index) => {
           const value = Number(row[metric]) || 0;
-          const color = managerColor(row);
+          const color = managerColor(index);
           return (
             <Box className="report-bar-row" key={`${row.manager_id}-${String(metric)}`}>
               <Box className="report-manager-label">
@@ -581,7 +579,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
       <Box className="report-chart-grid">
         <BarChart rows={sortedSummary} metric="advertising_total" label="Реклама" />
         <BarChart rows={sortedSummary} metric="total_calls" label="Обзвон" />
-        <BarChart rows={sortedSummary} metric="accounts_total" label="Счета" />
+        <BarChart rows={sortedSummary} metric="invoices_pending_payment_count" label="Счета под оплату" />
       </Box>
 
       <Paper className="glass-surface table-scroll" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
@@ -628,12 +626,12 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
               <TableCell>Дата</TableCell>
               <TableCell>Менеджер</TableCell>
               <TableCell>Звонков</TableCell>
-              <TableCell>Счетов</TableCell>
+              <TableCell>Выставлено счетов</TableCell>
               <TableCell>№ счетов</TableCell>
               <TableCell>Оплачено</TableCell>
               <TableCell>Заявок</TableCell>
-              <TableCell>Под оплату</TableCell>
-              <TableCell>Комментарий</TableCell>
+              <TableCell>Счета под оплату</TableCell>
+              <TableCell>№ Счета под оплату</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -660,7 +658,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
                 <TableCell>{report.paid_invoice_count}</TableCell>
                 <TableCell>{report.requests_received_count}</TableCell>
                 <TableCell>{report.invoices_pending_payment_count}</TableCell>
-                <TableCell sx={{ whiteSpace: "normal", minWidth: 220 }}>{report.note}</TableCell>
+                <TableCell sx={{ whiteSpace: "normal", minWidth: 190 }}>{report.invoices_pending_payment_numbers}</TableCell>
               </TableRow>
             ))}
             {reports.length === 0 && (
