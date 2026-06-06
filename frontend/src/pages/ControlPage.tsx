@@ -230,7 +230,17 @@ function QualityPanel({ rows }: { rows: ManagerQualityRow[] }) {
   );
 }
 
-function RefusalsPanel({ data, onAiAnalyze, isAiLoading }: { data?: RefusalAnalytics; onAiAnalyze: () => void; isAiLoading: boolean }) {
+function RefusalsPanel({
+  data,
+  onAiAnalyze,
+  isAiLoading,
+  aiError
+}: {
+  data?: RefusalAnalytics;
+  onAiAnalyze: () => void;
+  isAiLoading: boolean;
+  aiError?: unknown;
+}) {
   const max = Math.max(1, ...(data?.reasons.map((reason) => reason.count) || [0]));
   const commentMax = Math.max(1, ...(data?.comment_reasons?.reasons.map((reason) => reason.count) || [0]));
   return (
@@ -281,7 +291,17 @@ function RefusalsPanel({ data, onAiAnalyze, isAiLoading }: { data?: RefusalAnaly
               </Button>
             </Stack>
           </Stack>
-          {!data?.comment_reasons?.ai_enabled && (
+          {isAiLoading && (
+            <Alert severity="info" sx={{ mb: 1 }}>
+              AI анализирует все комментарии. На большой базе это может занять несколько минут.
+            </Alert>
+          )}
+          {Boolean(aiError) && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              AI-анализ не завершился: {errorMessage(aiError)}
+            </Alert>
+          )}
+          {data && !data.comment_reasons?.ai_enabled && (
             <Alert severity="info" sx={{ mb: 1 }}>
               AI подключится после настройки Ollama на сервере. Базовый анализ уже работает.
             </Alert>
@@ -465,9 +485,11 @@ export function ControlPage() {
     queryKey: ["manager-quality", dateFrom, dateTo, managerId],
     queryFn: async () => (await api.get<ManagerQualityRow[]>("/analytics/manager-quality", { params })).data
   });
-  const { data: refusals, isFetching: refusalsFetching } = useQuery({
+  const { data: refusals, isFetching: refusalsFetching, error: refusalsError } = useQuery({
     queryKey: ["refusals", dateFrom, dateTo, managerId, useAiForComments],
-    queryFn: async () => (await api.get<RefusalAnalytics>("/analytics/refusals", { params: { ...params, use_ai: useAiForComments || undefined } })).data
+    queryFn: async () => (await api.get<RefusalAnalytics>("/analytics/refusals", { params: { ...params, use_ai: useAiForComments || undefined } })).data,
+    placeholderData: (previousData) => previousData,
+    retry: false
   });
   const { data: cleanup } = useQuery({
     queryKey: ["base-cleanup"],
@@ -511,7 +533,12 @@ export function ControlPage() {
         </Box>
         <MotivationPanel rows={motivation} />
         <QualityPanel rows={quality} />
-        <RefusalsPanel data={refusals} onAiAnalyze={() => setUseAiForComments(true)} isAiLoading={refusalsFetching && useAiForComments} />
+        <RefusalsPanel
+          data={refusals}
+          onAiAnalyze={() => setUseAiForComments(true)}
+          isAiLoading={refusalsFetching && useAiForComments}
+          aiError={useAiForComments ? refusalsError : undefined}
+        />
         <CleanupPanel stats={cleanup} />
       </Stack>
     </>

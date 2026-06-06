@@ -166,7 +166,7 @@ def _ai_comment_batch(items: list[dict]) -> dict[int, str]:
     if not settings.ollama_base_url or not settings.ollama_api_key or not items:
         return {}
     allowed = {key for key, _, _ in COMMENT_REASON_RULES} | {"other"}
-    compact_items = [{"index": item["index"], "comment": item["comment"][:420]} for item in items]
+    compact_items = [{"index": item["index"], "comment": item["comment"][:280]} for item in items]
     prompt = (
         "Ты классифицируешь комментарии CRM по причинам отказа. "
         "Ответь строго JSON-массивом объектов вида {\"index\": 1, \"category\": \"no_answer\"}. "
@@ -181,7 +181,7 @@ def _ai_comment_batch(items: list[dict]) -> dict[int, str]:
             f"{base_url}/generate",
             headers={"Authorization": f"Bearer {settings.ollama_api_key}"},
             json={"model": settings.ollama_model, "prompt": prompt, "stream": False, "format": "json"},
-            timeout=45,
+            timeout=90,
         )
         response.raise_for_status()
         raw = response.json().get("response", "")
@@ -205,7 +205,7 @@ def _ai_comment_batch(items: list[dict]) -> dict[int, str]:
 
 def _ai_comment_categories(items: list[dict]) -> dict[int, str]:
     result: dict[int, str] = {}
-    batch_size = 80
+    batch_size = 120
     for start in range(0, len(items), batch_size):
         result.update(_ai_comment_batch(items[start : start + batch_size]))
     return result
