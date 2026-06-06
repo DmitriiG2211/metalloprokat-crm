@@ -190,28 +190,6 @@ export function DashboardPage() {
         }
       />
 
-      <Paper className="glass-surface crm-command-center" sx={{ p: { xs: 2, md: 2.5 }, mb: 2, borderRadius: "8px" }} elevation={0}>
-        <Box className="crm-command-grid">
-          <Box>
-            <Chip size="small" label={`Пользователь: ${user.full_name}`} className="glass-button" />
-            <Typography variant="h5" sx={{ mt: 1.5, maxWidth: 720 }}>
-              Русская CRM для металлопроката: клиенты, звонки, задачи и отчеты в одном рабочем пространстве.
-            </Typography>
-          </Box>
-          <Stack className="crm-quick-actions" direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }}>
-            <Button component={RouterLink} to="/reminders" startIcon={<EventRepeat />}>
-              Звонки
-            </Button>
-            <Button component={RouterLink} to="/tasks" startIcon={<Assignment />}>
-              Задачи
-            </Button>
-            <Button component={RouterLink} to="/reports" startIcon={<QueryStats />}>
-              Отчет
-            </Button>
-          </Stack>
-        </Box>
-      </Paper>
-
       <Box className="crm-metric-grid">
         <Metric label="Всего клиентов" value={stats?.clients_total ?? 0} helper="Активная база без удаленных записей" icon={<People />} tone="blue" />
         <Metric label="Позвонить сегодня" value={stats?.calls_today ?? 0} helper="Запланированные контакты на сегодня" icon={<EventRepeat />} tone="green" />

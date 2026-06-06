@@ -747,6 +747,35 @@ a {
   gap: 16px;
 }
 
+.report-period-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 14px;
+  align-items: center;
+}
+
+.report-period-dates {
+  min-width: 0;
+}
+
+.report-period-actions {
+  min-width: 0;
+}
+
+.report-quick-buttons {
+  flex-wrap: wrap;
+}
+
+.report-quick-buttons .MuiButton-root {
+  min-width: auto;
+  border: 1px solid var(--app-border);
+  background: #ffffff;
+}
+
+.report-manager-select {
+  width: 260px;
+}
+
 .report-bar-row {
   display: grid;
   grid-template-columns: 92px minmax(120px, 1fr) 48px;
@@ -943,6 +972,14 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .report-period-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .report-manager-select {
+    width: 100%;
+  }
+
   .report-detail-grid {
     grid-template-columns: 1fr;
   }
@@ -1106,6 +1143,10 @@ a {
   .report-line.compact,
   .report-bar-row {
     grid-template-columns: 1fr;
+  }
+
+  .report-quick-buttons .MuiButton-root {
+    flex: 1 1 92px;
   }
 }
 

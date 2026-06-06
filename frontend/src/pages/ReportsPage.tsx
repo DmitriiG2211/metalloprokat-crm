@@ -9,6 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -34,10 +35,22 @@ type TextKey = Exclude<keyof ReportPayload, NumericKey | "report_date">;
 type NumericInputValue = number | "";
 type ReportFormState = Omit<ReportPayload, NumericKey> & Record<NumericKey, NumericInputValue>;
 
-const today = () => new Date().toISOString().slice(0, 10);
+const toIsoDate = (date: Date) => {
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 10);
+};
+
+const today = () => toIsoDate(new Date());
 const monthStart = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+};
+const yearStart = () => `${new Date().getFullYear()}-01-01`;
+const weekStart = () => {
+  const date = new Date();
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
+  return toIsoDate(date);
 };
 
 const managerPalette = ["#0877ee", "#0f9cff", "#0055c8", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0f766e"];
@@ -433,32 +446,79 @@ function ReportDetailDialog({ report, onClose }: { report: DailyReport | null; o
 function LeaderReports({ isLeader }: { isLeader: boolean }) {
   const [dateFrom, setDateFrom] = useState(monthStart());
   const [dateTo, setDateTo] = useState(today());
+  const [managerId, setManagerId] = useState("");
   const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null);
-  const params = { date_from: dateFrom || undefined, date_to: dateTo || undefined };
+  const params = { date_from: dateFrom || undefined, date_to: dateTo || undefined, manager_id: managerId || undefined };
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => (await api.get<User[]>("/users")).data,
+    enabled: isLeader,
+    retry: false
+  });
 
   const { data: summary = [] } = useQuery({
-    queryKey: ["daily-reports-summary", dateFrom, dateTo],
+    queryKey: ["daily-reports-summary", dateFrom, dateTo, managerId],
     queryFn: async () => (await api.get<DailyReportSummaryRow[]>("/daily-reports/summary", { params })).data
   });
   const { data: reports = [] } = useQuery({
-    queryKey: ["daily-reports", dateFrom, dateTo],
+    queryKey: ["daily-reports", dateFrom, dateTo, managerId],
     queryFn: async () => (await api.get<DailyReport[]>("/daily-reports", { params })).data
   });
 
+  const managers = useMemo(() => users.filter((item) => item.role === "manager"), [users]);
   const sortedSummary = useMemo(() => [...summary].sort((a, b) => b.total_calls - a.total_calls), [summary]);
   const totalCalls = summary.reduce((sum, row) => sum + row.total_calls, 0);
   const totalRegularCalls = summary.reduce((sum, row) => sum + row.calls_regular, 0);
   const totalInvoices = summary.reduce((sum, row) => sum + row.invoice_count, 0);
   const totalPaid = summary.reduce((sum, row) => sum + row.paid_invoice_count, 0);
+  const selectedManager = managers.find((manager) => String(manager.id) === managerId);
+  const scopeLabel = selectedManager
+    ? `Сводка: ${selectedManager.manager_number ? `менеджер ${selectedManager.manager_number}` : selectedManager.full_name}`
+    : isLeader
+      ? "Сводка по всему отделу"
+      : "Ваши итоги";
+
+  const setPeriod = (period: "today" | "week" | "month" | "year") => {
+    const end = today();
+    const starts = {
+      today: end,
+      week: weekStart(),
+      month: monthStart(),
+      year: yearStart()
+    };
+    setDateFrom(starts[period]);
+    setDateTo(end);
+  };
 
   return (
     <Stack spacing={2}>
-      <Paper className="glass-surface" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
-          <TextField type="date" label="Период с" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} InputLabelProps={{ shrink: true }} size="small" />
-          <TextField type="date" label="Период по" value={dateTo} onChange={(event) => setDateTo(event.target.value)} InputLabelProps={{ shrink: true }} size="small" />
-          <Chip icon={<Analytics />} label={isLeader ? "Сводка по всем менеджерам" : "Ваши итоги"} className="glass-button" />
-        </Stack>
+      <Paper className="glass-surface report-period-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
+        <Box className="report-period-layout">
+          <Stack className="report-period-dates" direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
+            <TextField type="date" label="Период с" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} InputLabelProps={{ shrink: true }} size="small" />
+            <TextField type="date" label="Период по" value={dateTo} onChange={(event) => setDateTo(event.target.value)} InputLabelProps={{ shrink: true }} size="small" />
+            <Chip icon={<Analytics />} label={scopeLabel} className="glass-button" />
+          </Stack>
+          <Stack className="report-period-actions" direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="flex-end" alignItems={{ xs: "stretch", md: "center" }}>
+            <Stack direction="row" spacing={0.75} className="report-quick-buttons">
+              <Button size="small" onClick={() => setPeriod("today")}>Сегодня</Button>
+              <Button size="small" onClick={() => setPeriod("week")}>Неделя</Button>
+              <Button size="small" onClick={() => setPeriod("month")}>Месяц</Button>
+              <Button size="small" onClick={() => setPeriod("year")}>Год</Button>
+            </Stack>
+            {isLeader && (
+              <TextField className="report-manager-select" select size="small" label="Менеджер" value={managerId} onChange={(event) => setManagerId(String(event.target.value))}>
+                <MenuItem value="">Весь отдел</MenuItem>
+                {managers.map((manager) => (
+                  <MenuItem key={manager.id} value={String(manager.id)}>
+                    {manager.manager_number ? `Менеджер ${manager.manager_number}` : manager.login} · {manager.full_name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          </Stack>
+        </Box>
       </Paper>
 
       <Box className="report-kpi-grid">
