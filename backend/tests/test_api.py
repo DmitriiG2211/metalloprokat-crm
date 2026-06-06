@@ -130,3 +130,25 @@ def test_daily_report_flow_and_summary():
         - report_payload["calls_new_no_answer_count"]
     )
     assert manager103["invoice_count"] == 4
+
+
+def test_analytics_control_endpoints():
+    admin = token("admin", "admin123")
+    endpoints = [
+        "/api/analytics/manager-quality?date_from=2026-06-01&date_to=2026-06-30",
+        "/api/analytics/refusals?date_from=2026-06-01&date_to=2026-06-30",
+        "/api/analytics/base-cleanup",
+        "/api/analytics/motivation?date_from=2026-06-01&date_to=2026-06-30",
+    ]
+    for endpoint in endpoints:
+        response = client.get(endpoint, headers={"Authorization": f"Bearer {admin}"})
+        assert response.status_code == 200, response.text
+
+    quality = client.get(endpoints[0], headers={"Authorization": f"Bearer {admin}"}).json()
+    assert any(row["login"] == "manager103" for row in quality)
+
+    refusals = client.get(endpoints[1], headers={"Authorization": f"Bearer {admin}"}).json()
+    assert {"total", "reasons", "by_manager"} <= set(refusals.keys())
+
+    cleanup = client.get(endpoints[2], headers={"Authorization": f"Bearer {admin}"}).json()
+    assert {"total_clients", "duplicate_groups", "recent_imports"} <= set(cleanup.keys())

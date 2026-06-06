@@ -119,3 +119,70 @@ export interface DailyReportSummaryRow {
   unpaid_invoice_count: number;
   invoices_in_work_count: number;
 }
+
+export interface ManagerQualityRow {
+  manager_id: number;
+  login: string;
+  full_name: string;
+  manager_number?: string | null;
+  quality_score: number;
+  reports_submitted: number;
+  period_days: number;
+  calls_total: number;
+  comments_count: number;
+  clients_total: number;
+  without_comment: number;
+  overdue_clients: number;
+  task_total: number;
+  task_done: number;
+  task_overdue: number;
+}
+
+export interface RefusalReasonRow {
+  key: string;
+  label: string;
+  count: number;
+  share: number;
+}
+
+export interface RefusalAnalytics {
+  total: number;
+  reasons: RefusalReasonRow[];
+  by_manager: Array<Record<string, string | number>>;
+}
+
+export interface BaseCleanupStats {
+  total_clients: number;
+  no_phone: number;
+  no_email: number;
+  no_comment: number;
+  dead_clients: number;
+  duplicate_groups_count: number;
+  duplicate_groups: Array<{ type: string; value: string; count: number }>;
+  recent_imports: Array<{
+    id: number;
+    filename: string;
+    total_rows: number;
+    created_count: number;
+    duplicate_count: number;
+    skipped_count: number;
+    error_count: number;
+    created_at: string;
+  }>;
+}
+
+export interface MotivationRow {
+  manager_id: number;
+  login: string;
+  full_name: string;
+  manager_number?: string | null;
+  place: number;
+  points: number;
+  calls: number;
+  advertising: number;
+  invoices: number;
+  paid: number;
+  reports_count: number;
+  quality_score: number;
+  badges: string[];
+}

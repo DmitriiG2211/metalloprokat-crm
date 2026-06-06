@@ -15,6 +15,7 @@ const ImportPage = lazy(() => import("./pages/ImportPage").then((module) => ({ d
 const StatusesPage = lazy(() => import("./pages/StatusesPage").then((module) => ({ default: module.StatusesPage })));
 const UsersPage = lazy(() => import("./pages/UsersPage").then((module) => ({ default: module.UsersPage })));
 const ReportsPage = lazy(() => import("./pages/ReportsPage").then((module) => ({ default: module.ReportsPage })));
+const ControlPage = lazy(() => import("./pages/ControlPage").then((module) => ({ default: module.ControlPage })));
 const AuditLogPage = lazy(() => import("./pages/AuditLogPage").then((module) => ({ default: module.AuditLogPage })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="/statuses" element={<StatusesPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/control" element={<ControlPage />} />
             <Route path="/audit" element={<AuditLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

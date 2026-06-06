@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
-from app.routers import audit, auth, clients, daily_reports, export, imports, reminders, reports, statuses, tasks, users
+from app.routers import analytics, audit, auth, clients, daily_reports, export, imports, reminders, reports, statuses, tasks, users
 from app.seed import seed
 
 settings = get_settings()
@@ -65,6 +65,7 @@ for router in [
     reminders.router,
     imports.router,
     daily_reports.router,
+    analytics.router,
     reports.router,
     export.router,
     audit.router,

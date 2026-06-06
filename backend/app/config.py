@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     frontend_dist_path: str = ""
     upload_max_mb: int = 25
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 @lru_cache
