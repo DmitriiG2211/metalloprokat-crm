@@ -1,23 +1,54 @@
 import { AddTask, CheckCircle } from "@mui/icons-material";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField } from "@mui/material";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography
+} from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { Task, User } from "../types";
 
-const statusLabels: Record<string, string> = { new: "Новая", in_progress: "В работе", done: "Выполнена", canceled: "Отменена" };
+const statusLabels: Record<string, string> = {
+  new: "Новая",
+  in_progress: "В работе",
+  done: "Выполнена",
+  canceled: "Отменена"
+};
+
+const emptyTaskForm = { title: "", manager_id: "", deadline: "", priority: "normal", description: "" };
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "Без срока";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(date);
+};
 
 export function TasksPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", manager_id: "", deadline: "", priority: "normal", description: "" });
+  const [form, setForm] = useState(emptyTaskForm);
   const { data: tasks = [] } = useQuery({ queryKey: ["tasks"], queryFn: async () => (await api.get<Task[]>("/tasks")).data });
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: async () => (await api.get<User[]>("/users")).data, retry: false });
   const create = useMutation({
     mutationFn: async () => (await api.post("/tasks", { ...form, manager_id: Number(form.manager_id), deadline: form.deadline || undefined })).data,
     onSuccess: () => {
       setOpen(false);
+      setForm(emptyTaskForm);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     }
   });
@@ -29,6 +60,7 @@ export function TasksPage() {
     event.preventDefault();
     create.mutate();
   };
+
   return (
     <>
       <PageHeader
@@ -54,10 +86,21 @@ export function TasksPage() {
           <TableBody>
             {tasks.map((task) => (
               <TableRow key={task.id}>
-                <TableCell>{task.title}</TableCell>
+                <TableCell sx={{ minWidth: 280 }}>
+                  <Stack spacing={0.4}>
+                    <Typography fontWeight={850} variant="body2">
+                      {task.title}
+                    </Typography>
+                    {task.description && (
+                      <Typography color="text.secondary" variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+                        {task.description}
+                      </Typography>
+                    )}
+                  </Stack>
+                </TableCell>
                 <TableCell>{task.client?.company_name}</TableCell>
                 <TableCell>{task.manager?.login}</TableCell>
-                <TableCell>{task.deadline}</TableCell>
+                <TableCell>{formatDate(task.deadline)}</TableCell>
                 <TableCell>{statusLabels[task.status] || task.status}</TableCell>
                 <TableCell align="right">
                   {task.status !== "done" && (
@@ -90,7 +133,14 @@ export function TasksPage() {
                   </MenuItem>
                 ))}
             </TextField>
-            <TextField type="date" label="Срок" InputLabelProps={{ shrink: true }} value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
+            <TextField
+              type="date"
+              label="Срок"
+              helperText={form.deadline ? formatDate(form.deadline) : "Выберите дату в календаре"}
+              InputLabelProps={{ shrink: true }}
+              value={form.deadline}
+              onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+            />
             <TextField multiline minRows={3} label="Описание" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </Stack>
         </DialogContent>

@@ -39,9 +39,10 @@ def normalize_email(value: str | None) -> str | None:
 def normalize_website(value: str | None) -> tuple[str | None, str | None]:
     if not value:
         return None, None
-    raw = str(value).strip().split()[0]
-    if not raw:
+    parts = str(value).strip().split()
+    if not parts:
         return None, None
+    raw = parts[0]
     url = raw if raw.startswith(("http://", "https://")) else f"https://{raw}"
     parsed = urlparse(url)
     domain = parsed.netloc.lower().removeprefix("www.")

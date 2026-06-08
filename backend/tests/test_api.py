@@ -10,6 +10,7 @@ from app.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
 from app.routers.analytics import _comment_reason  # noqa: E402
+from app.utils.normalization import normalize_website  # noqa: E402
 from app.seed import seed  # noqa: E402
 
 
@@ -172,3 +173,7 @@ def test_comment_reason_normalizes_no_answer_variants():
     for comment in ["неберут. Недозвон", "не берут трубку", "Н.О.", "недоступен", "не-дозвон"]:
         key, _ = _comment_reason(comment)
         assert key == "no_answer"
+
+
+def test_normalize_website_ignores_blank_values():
+    assert normalize_website("   ") == (None, None)
