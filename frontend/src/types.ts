@@ -109,6 +109,25 @@ export interface SupplierBlacklistItem {
   updated_at: string;
 }
 
+export interface KanbanMailStatus {
+  enabled: boolean;
+  configured: boolean;
+  host: string;
+  port: number;
+  user: string;
+  folder: string;
+  search: string;
+  interval_seconds: number;
+}
+
+export interface KanbanMailSyncResult {
+  checked: number;
+  created: number;
+  skipped_duplicates: number;
+  skipped_blacklist: number;
+  errors: string[];
+}
+
 export interface DailyReport {
   id: number;
   manager_id: number;

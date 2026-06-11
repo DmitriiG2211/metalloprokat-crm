@@ -16,6 +16,7 @@ from app.schemas import (
     SupplierBlacklistUpdate,
 )
 from app.services.audit import write_audit
+from app.services.yandex_mail import mail_status, sync_yandex_mail
 
 router = APIRouter(prefix="/kanban", tags=["Kanban"])
 
@@ -65,6 +66,18 @@ def list_archive(search: str | None = Query(default=None), db: Session = Depends
             )
         )
     return db.scalars(stmt.order_by(KanbanRequest.archived_at.desc(), KanbanRequest.updated_at.desc())).unique().all()
+
+
+@router.get("/mail/status")
+def get_mail_status(_: User = Depends(get_current_user)):
+    return mail_status()
+
+
+@router.post("/mail/sync")
+def sync_mail(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not can_view_all(user):
+        raise HTTPException(403, "Only managers with full access can sync mail")
+    return sync_yandex_mail(db, user).to_dict()
 
 
 @router.post("/requests", response_model=KanbanRequestRead)

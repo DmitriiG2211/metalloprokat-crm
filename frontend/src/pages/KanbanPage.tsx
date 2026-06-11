@@ -1,4 +1,4 @@
-import { Add, Archive, Block, DragIndicator, Inventory2, Mail, Phone, Search, ViewKanban } from "@mui/icons-material";
+import { Add, Archive, Block, DragIndicator, Inventory2, Mail, Phone, Search, Sync, ViewKanban } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -23,7 +23,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { KanbanRequest, KanbanStatus, SupplierBlacklistItem, User } from "../types";
+import { KanbanMailStatus, KanbanMailSyncResult, KanbanRequest, KanbanStatus, SupplierBlacklistItem, User } from "../types";
 
 const columns: Array<{ key: KanbanStatus; title: string; tone: string }> = [
   { key: "new", title: "Новая заявка", tone: "#5b7fa6" },
@@ -116,6 +116,7 @@ export function KanbanPage() {
   const [dragged, setDragged] = useState<KanbanRequest | null>(null);
   const [requestForm, setRequestForm] = useState(emptyRequestForm);
   const [blacklistForm, setBlacklistForm] = useState(emptyBlacklistForm);
+  const [mailSyncMessage, setMailSyncMessage] = useState("");
   const canSeeManagers = ["admin", "director", "senior_manager"].includes(user.role);
 
   const { data: requests = [] } = useQuery({
@@ -136,6 +137,12 @@ export function KanbanPage() {
     queryKey: ["users"],
     queryFn: async () => (await api.get<User[]>("/users")).data,
     enabled: canSeeManagers || openRequest,
+    retry: false
+  });
+  const { data: mailStatus } = useQuery({
+    queryKey: ["kanban-mail-status"],
+    queryFn: async () => (await api.get<KanbanMailStatus>("/kanban/mail/status")).data,
+    enabled: canSeeManagers,
     retry: false
   });
 
@@ -178,6 +185,19 @@ export function KanbanPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["supplier-blacklist"] })
   });
 
+  const syncMail = useMutation({
+    mutationFn: async () => (await api.post<KanbanMailSyncResult>("/kanban/mail/sync")).data,
+    onSuccess: (result) => {
+      const errorText = result.errors.length ? ` Ошибка: ${result.errors[0]}` : "";
+      setMailSyncMessage(
+        `Проверено: ${result.checked}. Создано: ${result.created}. Дубли: ${result.skipped_duplicates}. Черный список: ${result.skipped_blacklist}.${errorText}`
+      );
+      queryClient.invalidateQueries({ queryKey: ["kanban-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["kanban-archive"] });
+    },
+    onError: () => setMailSyncMessage("Не удалось синхронизировать почту. Проверьте настройки Yandex в .env на сервере.")
+  });
+
   const grouped = useMemo(
     () =>
       columns.reduce<Record<KanbanStatus, KanbanRequest[]>>(
@@ -212,6 +232,15 @@ export function KanbanPage() {
         title="Kanban заявок"
         actions={
           <>
+            {canSeeManagers && (
+              <Tooltip title={mailStatus?.configured ? "Проверить новые письма Yandex" : "Укажите YANDEX_MAIL_USER и YANDEX_MAIL_PASSWORD на сервере"}>
+                <span>
+                  <Button startIcon={<Sync />} disabled={!mailStatus?.configured || syncMail.isPending} onClick={() => syncMail.mutate()}>
+                    {syncMail.isPending ? "Проверяю почту" : "Синхронизировать почту"}
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
             <Button startIcon={<Block />} onClick={() => setOpenBlacklist(true)}>
               Поставщик
             </Button>
@@ -228,6 +257,21 @@ export function KanbanPage() {
           <Tab icon={<Block />} iconPosition="start" label="Черный список" />
         </Tabs>
       </Paper>
+      {canSeeManagers && (
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }} sx={{ mb: 2 }}>
+          <Chip
+            icon={<Mail />}
+            label={mailStatus?.configured ? `Yandex: ${mailStatus.user || "подключена"}` : "Yandex почта не настроена"}
+            color={mailStatus?.configured ? "success" : "default"}
+            variant={mailStatus?.configured ? "filled" : "outlined"}
+          />
+          {mailSyncMessage && (
+            <Typography variant="body2" color="text.secondary">
+              {mailSyncMessage}
+            </Typography>
+          )}
+        </Stack>
+      )}
 
       {tab === 0 && (
         <Box className="kanban-board">

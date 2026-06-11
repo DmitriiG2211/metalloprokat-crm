@@ -15,6 +15,15 @@ class Settings(BaseSettings):
     ollama_base_url: str = ""
     ollama_api_key: str = ""
     ollama_model: str = "gpt-oss:20b"
+    yandex_mail_enabled: bool = False
+    yandex_mail_host: str = "imap.yandex.ru"
+    yandex_mail_port: int = 993
+    yandex_mail_user: str = ""
+    yandex_mail_password: str = ""
+    yandex_mail_folder: str = "INBOX"
+    yandex_mail_search: str = "UNSEEN"
+    yandex_mail_seen_limit: int = 30
+    yandex_mail_interval_seconds: int = 300
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.database import Base, SessionLocal, engine
 from app.routers import analytics, audit, auth, clients, daily_reports, export, imports, kanban, reminders, reports, statuses, tasks, users
 from app.seed import seed
+from app.services.yandex_mail import start_yandex_mail_worker
 
 settings = get_settings()
 
@@ -49,6 +50,7 @@ def startup() -> None:
     ensure_lightweight_schema_updates()
     with SessionLocal() as db:
         seed(db)
+    start_yandex_mail_worker()
 
 
 @app.get("/api/health")
