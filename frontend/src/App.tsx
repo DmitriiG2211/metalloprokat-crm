@@ -11,6 +11,7 @@ const DashboardPage = lazy(() => import("./pages/DashboardPage").then((module) =
 const ClientsPage = lazy(() => import("./pages/ClientsPage").then((module) => ({ default: module.ClientsPage })));
 const RemindersPage = lazy(() => import("./pages/RemindersPage").then((module) => ({ default: module.RemindersPage })));
 const TasksPage = lazy(() => import("./pages/TasksPage").then((module) => ({ default: module.TasksPage })));
+const KanbanPage = lazy(() => import("./pages/KanbanPage").then((module) => ({ default: module.KanbanPage })));
 const ImportPage = lazy(() => import("./pages/ImportPage").then((module) => ({ default: module.ImportPage })));
 const StatusesPage = lazy(() => import("./pages/StatusesPage").then((module) => ({ default: module.StatusesPage })));
 const UsersPage = lazy(() => import("./pages/UsersPage").then((module) => ({ default: module.UsersPage })));
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/reminders" element={<RemindersPage />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/kanban" element={<KanbanPage />} />
             <Route path="/import" element={<ImportPage />} />
             <Route path="/statuses" element={<StatusesPage />} />
             <Route path="/users" element={<UsersPage />} />

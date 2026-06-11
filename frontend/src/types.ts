@@ -74,6 +74,41 @@ export interface Task {
   manager?: User | null;
 }
 
+export type KanbanStatus = "new" | "in_progress" | "invoiced";
+export type KanbanSource = "mail" | "phone" | "whatsapp" | "telegram" | "other";
+
+export interface KanbanRequest {
+  id: number;
+  company_name: string;
+  contact_person?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  subject?: string | null;
+  comment?: string | null;
+  nomenclature?: string | null;
+  source: KanbanSource | string;
+  status: KanbanStatus | string;
+  manager_id?: number | null;
+  creator_id: number;
+  message_id?: string | null;
+  received_at?: string | null;
+  archived_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  manager?: User | null;
+  creator?: User | null;
+}
+
+export interface SupplierBlacklistItem {
+  id: number;
+  supplier_name: string;
+  email?: string | null;
+  domain?: string | null;
+  note?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DailyReport {
   id: number;
   manager_id: number;

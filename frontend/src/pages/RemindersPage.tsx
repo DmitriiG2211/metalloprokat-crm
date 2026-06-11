@@ -2,13 +2,24 @@ import { AddAlert } from "@mui/icons-material";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link as RouterLink, useOutletContext } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusChip } from "../components/StatusChip";
 import { Client, Page, User } from "../types";
 
 const endpoints = ["/reminders/today", "/reminders/overdue", "/reminders/upcoming"];
+const splitContacts = (value?: string | null) =>
+  (value || "")
+    .split(/\n|;|,(?=\s*(?:\+?\d|[\w.+-]+@))/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const shortPhones = (value?: string | null) => {
+  const phones = splitContacts(value).slice(0, 3);
+  return phones.length ? phones.join(", ") : "Телефон не указан";
+};
+
 const todayIso = () => {
   const date = new Date();
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -81,7 +92,7 @@ export function RemindersPage() {
         </Tabs>
       </Paper>
       <Paper className="table-scroll glass-surface" sx={{ borderRadius: "8px" }} elevation={0}>
-        <Table size="small" className="premium-table">
+        <Table size="small" className="premium-table reminders-table">
           <TableHead>
             <TableRow>
               <TableCell>Компания</TableCell>
@@ -94,8 +105,12 @@ export function RemindersPage() {
           <TableBody>
             {data.map((client) => (
               <TableRow key={client.id}>
-                <TableCell>{client.company_name}</TableCell>
-                <TableCell>{client.phone}</TableCell>
+                <TableCell sx={{ maxWidth: 320 }}>
+                  <Button component={RouterLink} to={`/clients?client_id=${client.id}`} size="small" sx={{ justifyContent: "flex-start", px: 0, textAlign: "left" }}>
+                    {client.company_name}
+                  </Button>
+                </TableCell>
+                <TableCell sx={{ maxWidth: 260, whiteSpace: "normal" }}>{shortPhones(client.phone)}</TableCell>
                 <TableCell>{client.next_call_date}</TableCell>
                 <TableCell>
                   <StatusChip status={client.status} />

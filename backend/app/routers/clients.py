@@ -41,6 +41,7 @@ def list_clients(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     search: str | None = None,
+    client_id: int | None = None,
     status_id: int | None = None,
     manager_id: int | None = None,
     overdue: bool = False,
@@ -52,6 +53,8 @@ def list_clients(
     sort_dir: str = "desc",
 ):
     stmt = client_query(user)
+    if client_id:
+        stmt = stmt.where(Client.id == client_id)
     if status_id:
         stmt = stmt.where(Client.status_id == status_id)
     else:

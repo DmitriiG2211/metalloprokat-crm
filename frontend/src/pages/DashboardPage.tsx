@@ -130,7 +130,7 @@ function EmptyLine({ text }: { text: string }) {
 
 export function DashboardPage() {
   const { user } = useOutletContext<{ user: User }>();
-  const canSeeManagers = ["admin", "director", "senior_manager"].includes(user.role);
+  const canSeeManagers = false;
 
   const { data: stats } = useQuery({
     queryKey: ["dashboard"],

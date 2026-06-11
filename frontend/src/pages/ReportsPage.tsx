@@ -291,7 +291,7 @@ function ManagerReportForm() {
         </ReportSection>
 
         <ReportSection title="Обзвон">
-          <Typography variant="body2" color="text.secondary" fontWeight={800}>
+          <Typography className="report-call-group current" variant="body2">
             Текущая база
           </Typography>
           {existingCallFields.map((field) => (
@@ -301,8 +301,8 @@ function ManagerReportForm() {
             </Box>
           ))}
           <Divider />
-          <Typography variant="body2" color="text.secondary" fontWeight={800}>
-            Новые и постоянные клиенты
+          <Typography className="report-call-group new" variant="body2">
+            Новые клиенты Excel/1С
           </Typography>
           {newCallFields.map((field) => (
             <Box className="report-line compact" key={field.key}>
@@ -435,15 +435,15 @@ function ReportDetailDialog({ report, onClose }: { report: DailyReport | null; o
             </DetailSection>
 
             <DetailSection title="Обзвон">
-              <Typography variant="body2" color="text.secondary" fontWeight={800}>
+              <Typography className="report-call-group current" variant="body2">
                 Текущая база
               </Typography>
               {existingCallFields.map((field) => (
                 <DetailRow key={field.key} label={field.label} count={report[field.key]} />
               ))}
               <Divider />
-              <Typography variant="body2" color="text.secondary" fontWeight={800}>
-                Новые и постоянные клиенты
+              <Typography className="report-call-group new" variant="body2">
+                Новые клиенты Excel/1С
               </Typography>
               {newCallFields.map((field) => (
                 <DetailRow key={field.key} label={field.label} count={report[field.key]} />

@@ -24,7 +24,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusChip } from "../components/StatusChip";
@@ -418,6 +418,8 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
 export function ClientsPage() {
   const { user } = useOutletContext<{ user: User }>();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusedClientId = searchParams.get("client_id");
   const pageStorageKey = `crm_clients_page_${user.id}`;
   const [page, setPage] = useState(() => {
     const stored = Number(localStorage.getItem(pageStorageKey));
@@ -454,7 +456,7 @@ export function ClientsPage() {
     retry: false
   });
   const { data, isFetching } = useQuery({
-    queryKey: ["clients", page, search, statusId, managerId, nextCallFrom, nextCallTo],
+    queryKey: ["clients", page, search, statusId, managerId, nextCallFrom, nextCallTo, focusedClientId],
     queryFn: async () =>
       (
         await api.get<Page<Client>>("/clients", {
@@ -464,6 +466,7 @@ export function ClientsPage() {
             search: search || undefined,
             status_id: statusId || undefined,
             manager_id: managerId || undefined,
+            client_id: focusedClientId || undefined,
             next_call_from: nextCallFrom || undefined,
             next_call_to: nextCallTo || undefined
           }
@@ -543,6 +546,14 @@ export function ClientsPage() {
         }
       />
       <Paper className="glass-surface filter-bar" sx={{ p: 1.5, mb: 1.5, borderRadius: "8px" }} elevation={0}>
+        {focusedClientId && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+            <Chip label="Открыт клиент из напоминания" className="glass-button" />
+            <Button size="small" onClick={() => setSearchParams({})}>
+              Показать всех
+            </Button>
+          </Stack>
+        )}
         <Box className="filter-grid" sx={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 150px 150px 150px 150px", gap: 1 }}>
           <TextField size="small" label="Поиск" value={search} onChange={(e) => setSearch(e.target.value)} InputProps={{ startAdornment: <Search fontSize="small" sx={{ mr: 1 }} /> }} />
           <TextField size="small" select label="Статус" value={statusId} onChange={(e) => setStatusId(e.target.value)}>

@@ -473,7 +473,7 @@ a {
 }
 
 .crm-object-grid {
-  display: grid;
+  display: none;
   grid-template-columns: repeat(4, minmax(170px, 1fr));
   gap: 14px;
   margin-top: 16px;
@@ -522,6 +522,41 @@ a {
 
 .premium-table .MuiTableCell-root {
   border-bottom-color: #edf0f3;
+}
+
+.reminders-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.reminders-table .MuiTableCell-root {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reminders-table th:nth-child(1),
+.reminders-table td:nth-child(1) {
+  width: 30%;
+}
+
+.reminders-table th:nth-child(2),
+.reminders-table td:nth-child(2) {
+  width: 24%;
+}
+
+.reminders-table th:nth-child(3),
+.reminders-table td:nth-child(3) {
+  width: 16%;
+}
+
+.reminders-table th:nth-child(4),
+.reminders-table td:nth-child(4) {
+  width: 15%;
+}
+
+.reminders-table th:nth-child(5),
+.reminders-table td:nth-child(5) {
+  width: 15%;
 }
 
 .excel-sheet {
@@ -834,6 +869,25 @@ a {
   grid-column: auto;
 }
 
+.report-call-group {
+  width: fit-content;
+  margin-bottom: 2px !important;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+}
+
+.report-call-group.current {
+  color: #4d6576;
+  background: #edf3f6;
+}
+
+.report-call-group.new {
+  color: #5f6747;
+  background: #f0f3e9;
+}
+
 .report-kpi-grid,
 .report-chart-grid {
   display: grid;
@@ -1125,6 +1179,93 @@ a {
   align-items: start;
 }
 
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.kanban-column {
+  min-height: 62vh;
+  padding: 14px;
+  border-radius: 8px !important;
+}
+
+.kanban-card {
+  cursor: grab;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: var(--glass-shadow) !important;
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+.kanban-drag-icon {
+  color: var(--app-muted);
+  margin-top: 2px;
+}
+
+.kanban-card-title {
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+  overflow-wrap: anywhere;
+}
+
+.kanban-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kanban-card-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow-wrap: anywhere;
+}
+
+.kanban-empty,
+.kanban-empty-state {
+  display: grid;
+  min-height: 96px;
+  place-items: center;
+  gap: 6px;
+  padding: 16px;
+  color: var(--app-muted);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.kanban-archive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.kanban-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.blacklist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
 .MuiPopover-paper,
 .MuiMenu-paper,
 .MuiDialog-paper {
@@ -1237,7 +1378,8 @@ a {
 
   .control-filter-grid,
   .refusal-analytics-grid,
-  .cleanup-grid {
+  .cleanup-grid,
+  .kanban-board {
     grid-template-columns: 1fr;
   }
 
@@ -1420,6 +1562,11 @@ a {
 
   .report-quick-buttons .MuiButton-root {
     flex: 1 1 92px;
+  }
+
+  .kanban-form-grid,
+  .blacklist-row {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -31,6 +31,20 @@ class TaskPriority(StrEnum):
     urgent = "urgent"
 
 
+class KanbanStatus(StrEnum):
+    new = "new"
+    in_progress = "in_progress"
+    invoiced = "invoiced"
+
+
+class KanbanSource(StrEnum):
+    mail = "mail"
+    phone = "phone"
+    whatsapp = "whatsapp"
+    telegram = "telegram"
+    other = "other"
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -202,6 +216,39 @@ class Transfer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class KanbanRequest(Base, TimestampMixin):
+    __tablename__ = "kanban_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_name: Mapped[str] = mapped_column(String(500), index=True)
+    contact_person: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
+    subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nomenclature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(40), default=KanbanSource.phone.value, index=True)
+    status: Mapped[str] = mapped_column(String(40), default=KanbanStatus.new.value, index=True)
+    manager_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    creator_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    message_id: Mapped[str | None] = mapped_column(String(500), nullable=True, unique=True)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
+    manager: Mapped[User | None] = relationship(foreign_keys=[manager_id])
+    creator: Mapped[User] = relationship(foreign_keys=[creator_id])
+
+
+class SupplierBlacklist(Base, TimestampMixin):
+    __tablename__ = "supplier_blacklist"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    supplier_name: Mapped[str] = mapped_column(String(500), index=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 
@@ -230,3 +277,4 @@ class Setting(Base):
 Index("ix_clients_manager_status_next_call", Client.manager_id, Client.status_id, Client.next_call_date)
 Index("ix_tasks_manager_status_deadline", Task.manager_id, Task.status, Task.deadline)
 Index("ix_daily_reports_manager_date", DailyReport.manager_id, DailyReport.report_date)
+Index("ix_kanban_status_archived", KanbanRequest.status, KanbanRequest.archived_at)

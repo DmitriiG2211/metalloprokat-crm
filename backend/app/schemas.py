@@ -251,6 +251,74 @@ class DailyReportSummaryRow(BaseModel):
     invoices_in_work_count: int
 
 
+class KanbanRequestBase(BaseModel):
+    company_name: str = Field(min_length=1)
+    contact_person: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    subject: str | None = None
+    comment: str | None = None
+    nomenclature: str | None = None
+    source: str = "phone"
+    manager_id: int | None = None
+
+
+class KanbanRequestCreate(KanbanRequestBase):
+    pass
+
+
+class KanbanRequestUpdate(BaseModel):
+    company_name: str | None = None
+    contact_person: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    subject: str | None = None
+    comment: str | None = None
+    nomenclature: str | None = None
+    source: str | None = None
+    manager_id: int | None = None
+    status: str | None = None
+
+
+class KanbanRequestRead(KanbanRequestBase):
+    id: int
+    creator_id: int
+    status: str
+    message_id: str | None = None
+    received_at: datetime | None = None
+    archived_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+    manager: UserTiny | None = None
+    creator: UserTiny | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierBlacklistBase(BaseModel):
+    supplier_name: str = Field(min_length=1)
+    email: str | None = None
+    domain: str | None = None
+    note: str | None = None
+
+
+class SupplierBlacklistCreate(SupplierBlacklistBase):
+    pass
+
+
+class SupplierBlacklistUpdate(BaseModel):
+    supplier_name: str | None = None
+    email: str | None = None
+    domain: str | None = None
+    note: str | None = None
+
+
+class SupplierBlacklistRead(SupplierBlacklistBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TransferCreate(BaseModel):
     new_manager_id: int
     reason: str

@@ -9,7 +9,7 @@ import { User } from "../types";
 const leaderRoles = new Set(["admin", "director", "senior_manager"]);
 
 function userLabel(user: User) {
-  if (leaderRoles.has(user.role)) return user.role === "admin" ? "Руководитель" : user.full_name;
+  if (leaderRoles.has(user.role)) return "Руководитель";
   return user.manager_number ? `Менеджер ${user.manager_number}` : user.full_name;
 }
 
@@ -23,7 +23,10 @@ export function LoginPage() {
     retry: false
   });
 
-  const leaders = users.filter((user) => leaderRoles.has(user.role));
+  const leaders = users
+    .filter((user) => leaderRoles.has(user.role))
+    .sort((a, b) => (a.role === "admin" ? -1 : b.role === "admin" ? 1 : 0))
+    .slice(0, 1);
   const managers = users.filter((user) => user.role === "manager");
 
   const quickLogin = async (login: string) => {
@@ -81,7 +84,6 @@ export function LoginPage() {
                     disabled={Boolean(loadingLogin)}
                   >
                     <span>{userLabel(user)}</span>
-                    <small>{user.login}</small>
                   </Button>
                 ))}
               </Box>
@@ -102,7 +104,6 @@ export function LoginPage() {
                     disabled={Boolean(loadingLogin)}
                   >
                     <span>{userLabel(user)}</span>
-                    <small>{user.login}</small>
                   </Button>
                 ))}
               </Box>

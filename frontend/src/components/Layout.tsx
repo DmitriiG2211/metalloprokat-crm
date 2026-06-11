@@ -12,7 +12,8 @@ import {
   Notifications,
   Search,
   Settings,
-  UploadFile
+  UploadFile,
+  ViewKanban
 } from "@mui/icons-material";
 import {
   AppBar,
@@ -54,6 +55,7 @@ const menu = [
   { label: "Клиенты", path: "/clients", icon: <BackupTable />, section: "Работа" },
   { label: "Напоминания", path: "/reminders", icon: <EventRepeat />, section: "Работа" },
   { label: "Задачи", path: "/tasks", icon: <Assignment />, section: "Работа" },
+  { label: "Kanban", path: "/kanban", icon: <ViewKanban />, section: "Работа" },
   { label: "Отчет", path: "/reports", icon: <Assessment />, section: "Работа" },
   { label: "Контроль", path: "/control", icon: <ManageSearch />, roles: ["admin", "director", "senior_manager"], section: "Работа" },
   { label: "Импорт Excel", path: "/import", icon: <UploadFile />, roles: ["admin", "director"], section: "Администрирование" },

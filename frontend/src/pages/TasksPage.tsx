@@ -38,6 +38,17 @@ const formatDate = (value?: string | null) => {
   return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(date);
 };
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "Не выполнена";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+};
+
 export function TasksPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -80,6 +91,7 @@ export function TasksPage() {
               <TableCell>Менеджер</TableCell>
               <TableCell>Срок</TableCell>
               <TableCell>Статус</TableCell>
+              <TableCell>Выполнено</TableCell>
               <TableCell align="right">Действия</TableCell>
             </TableRow>
           </TableHead>
@@ -102,6 +114,7 @@ export function TasksPage() {
                 <TableCell>{task.manager?.login}</TableCell>
                 <TableCell>{formatDate(task.deadline)}</TableCell>
                 <TableCell>{statusLabels[task.status] || task.status}</TableCell>
+                <TableCell>{formatDateTime(task.completed_at)}</TableCell>
                 <TableCell align="right">
                   {task.status !== "done" && (
                     <Button size="small" startIcon={<CheckCircle />} onClick={() => complete.mutate(task.id)}>
@@ -113,7 +126,7 @@ export function TasksPage() {
             ))}
             {tasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6}>У вас нет задач</TableCell>
+                <TableCell colSpan={7}>У вас нет задач</TableCell>
               </TableRow>
             )}
           </TableBody>
