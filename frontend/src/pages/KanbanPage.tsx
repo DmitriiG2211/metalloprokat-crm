@@ -63,9 +63,31 @@ function managerName(user?: User | null) {
   return user.manager_number ? `Менеджер ${user.manager_number}` : user.full_name || user.login;
 }
 
-function KanbanCard({ item, onDragStart }: { item: KanbanRequest; onDragStart: (item: KanbanRequest) => void }) {
+function KanbanCard({
+  item,
+  onDragStart,
+  onOpen
+}: {
+  item: KanbanRequest;
+  onDragStart: (item: KanbanRequest) => void;
+  onOpen: (item: KanbanRequest) => void;
+}) {
   return (
-    <Paper className="kanban-card" elevation={0} draggable onDragStart={() => onDragStart(item)}>
+    <Paper
+      className="kanban-card"
+      elevation={0}
+      draggable
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(item)}
+      onDragStart={() => onDragStart(item)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(item);
+        }
+      }}
+    >
       <Stack spacing={1}>
         <Stack direction="row" spacing={1} alignItems="flex-start">
           <DragIndicator className="kanban-drag-icon" fontSize="small" />
@@ -117,11 +139,13 @@ export function KanbanPage() {
   const [requestForm, setRequestForm] = useState(emptyRequestForm);
   const [blacklistForm, setBlacklistForm] = useState(emptyBlacklistForm);
   const [mailSyncMessage, setMailSyncMessage] = useState("");
+  const [selectedRequest, setSelectedRequest] = useState<KanbanRequest | null>(null);
   const canSeeManagers = ["admin", "director", "senior_manager"].includes(user.role);
 
   const { data: requests = [] } = useQuery({
     queryKey: ["kanban-requests"],
-    queryFn: async () => (await api.get<KanbanRequest[]>("/kanban/requests")).data
+    queryFn: async () => (await api.get<KanbanRequest[]>("/kanban/requests")).data,
+    refetchInterval: 60000
   });
   const { data: archived = [] } = useQuery({
     queryKey: ["kanban-archive", archiveSearch],
@@ -265,6 +289,11 @@ export function KanbanPage() {
             color={mailStatus?.configured ? "success" : "default"}
             variant={mailStatus?.configured ? "filled" : "outlined"}
           />
+          {mailStatus?.configured && (
+            <Typography variant="body2" color="text.secondary">
+              Автоматическая проверка каждые {mailStatus.interval_seconds} сек.
+            </Typography>
+          )}
           {mailSyncMessage && (
             <Typography variant="body2" color="text.secondary">
               {mailSyncMessage}
@@ -292,7 +321,7 @@ export function KanbanPage() {
               </Stack>
               <Stack spacing={1}>
                 {grouped[column.key].map((item) => (
-                  <KanbanCard key={item.id} item={item} onDragStart={setDragged} />
+                  <KanbanCard key={item.id} item={item} onDragStart={setDragged} onOpen={setSelectedRequest} />
                 ))}
                 {grouped[column.key].length === 0 && (
                   <Box className="kanban-empty">
@@ -320,7 +349,7 @@ export function KanbanPage() {
           </Paper>
           <Box className="kanban-archive-grid">
             {archived.map((item) => (
-              <KanbanCard key={item.id} item={item} onDragStart={() => undefined} />
+              <KanbanCard key={item.id} item={item} onDragStart={() => undefined} onOpen={setSelectedRequest} />
             ))}
             {archived.length === 0 && (
               <Paper className="glass-surface kanban-empty-state" elevation={0}>
@@ -358,6 +387,56 @@ export function KanbanPage() {
           </Stack>
         </Paper>
       )}
+
+      <Dialog open={Boolean(selectedRequest)} onClose={() => setSelectedRequest(null)} fullWidth maxWidth="md" PaperProps={{ className: "glass-surface", sx: { borderRadius: "8px" } }}>
+        {selectedRequest && (
+          <>
+            <DialogTitle>{selectedRequest.subject || selectedRequest.company_name}</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} sx={{ pt: 0.5 }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip size="small" label={sourceLabels[selectedRequest.source] || selectedRequest.source} />
+                  {selectedRequest.email && <Chip size="small" icon={<Mail />} label={selectedRequest.email} />}
+                  {selectedRequest.phone && <Chip size="small" icon={<Phone />} label={selectedRequest.phone} />}
+                  <Chip size="small" label={formatDateTime(selectedRequest.received_at || selectedRequest.created_at)} />
+                </Stack>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Компания
+                  </Typography>
+                  <Typography fontWeight={900}>{selectedRequest.company_name}</Typography>
+                </Box>
+                {selectedRequest.contact_person && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Контакт
+                    </Typography>
+                    <Typography>{selectedRequest.contact_person}</Typography>
+                  </Box>
+                )}
+                {selectedRequest.nomenclature && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Номенклатура
+                    </Typography>
+                    <Typography sx={{ whiteSpace: "pre-wrap" }}>{selectedRequest.nomenclature}</Typography>
+                  </Box>
+                )}
+                <Divider />
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Содержимое письма / комментарий
+                  </Typography>
+                  <Typography sx={{ mt: 0.75, whiteSpace: "pre-wrap" }}>{selectedRequest.comment || "Текст письма пустой"}</Typography>
+                </Box>
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setSelectedRequest(null)}>Закрыть</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
 
       <Dialog open={openRequest} onClose={() => setOpenRequest(false)} fullWidth maxWidth="md" PaperProps={{ className: "glass-surface", sx: { borderRadius: "8px" } }}>
         <DialogTitle>Новая заявка</DialogTitle>

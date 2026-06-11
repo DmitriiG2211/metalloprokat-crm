@@ -1199,6 +1199,15 @@ a {
   border-radius: 8px !important;
   background: #ffffff !important;
   box-shadow: var(--glass-shadow) !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.kanban-card:hover,
+.kanban-card:focus-visible {
+  border-color: rgba(0, 113, 227, 0.28);
+  box-shadow: 0 12px 32px rgba(0, 113, 227, 0.12) !important;
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .kanban-card:active {

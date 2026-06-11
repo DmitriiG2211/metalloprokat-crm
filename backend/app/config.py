@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     yandex_mail_folder: str = "INBOX"
     yandex_mail_search: str = "UNSEEN"
     yandex_mail_seen_limit: int = 30
-    yandex_mail_interval_seconds: int = 300
+    yandex_mail_interval_seconds: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
