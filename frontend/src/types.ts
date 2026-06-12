@@ -128,6 +128,31 @@ export interface KanbanMailSyncResult {
   errors: string[];
 }
 
+export interface ImportJob {
+  id: number;
+  filename: string;
+  uploaded_by: number;
+  assigned_manager_id: number;
+  total_rows: number;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  duplicate_count: number;
+  error_count: number;
+  status: string;
+  created_at: string;
+  rolled_back_at?: string | null;
+  rolled_back_by?: number | null;
+  rollback_note?: string | null;
+}
+
+export interface ImportRollbackResult {
+  ok: boolean;
+  import_id: number;
+  rolled_back_clients: number;
+  rolled_back_at: string;
+}
+
 export interface DailyReport {
   id: number;
   manager_id: number;

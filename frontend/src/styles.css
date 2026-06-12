@@ -176,6 +176,14 @@ a {
   max-width: 100%;
 }
 
+.app-footer-credit {
+  margin-top: 28px !important;
+  padding: 12px 0 2px;
+  color: var(--app-muted);
+  font-size: 12px !important;
+  text-align: center;
+}
+
 .page-header {
   padding: 4px 0 8px;
 }

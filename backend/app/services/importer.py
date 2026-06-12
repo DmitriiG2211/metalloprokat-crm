@@ -10,7 +10,7 @@ from openpyxl.styles.colors import COLOR_INDEX
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Client, ClientComment, ImportError, ImportJob, Status, User
+from app.models import Client, ClientComment, ImportClientChange, ImportError, ImportJob, Status, User
 from app.services.audit import write_audit
 from app.utils.normalization import normalize_company, normalize_email, normalize_phone, normalize_website, parse_date
 
@@ -268,6 +268,21 @@ def import_dataframe(
             source_import_id=job.id,
         )
         db.add(client)
+        db.flush()
+        db.add(
+            ImportClientChange(
+                import_id=job.id,
+                client_id=client.id,
+                action="created",
+                new_data={
+                    "company_name": client.company_name,
+                    "phone": client.phone,
+                    "email": client.email,
+                    "website": client.website,
+                    "status_id": client.status_id,
+                },
+            )
+        )
         pending_companies.add(normalized_company)
         if normalized_phone:
             pending_phones.add(normalized_phone)

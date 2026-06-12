@@ -303,6 +303,7 @@ export function Layout({ user }: { user: User }) {
         <ErrorBoundary resetKey={location.pathname}>
           <Outlet context={{ user }} />
         </ErrorBoundary>
+        <Typography className="app-footer-credit">Разработал Голуб Д.А.</Typography>
       </Box>
     </Box>
   );

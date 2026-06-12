@@ -190,6 +190,21 @@ class ImportJob(Base):
     duplicate_count: Mapped[int] = mapped_column(Integer, default=0)
     error_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(40), default="done")
+    rolled_back_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rolled_back_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    rollback_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ImportClientChange(Base):
+    __tablename__ = "import_client_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    import_id: Mapped[int] = mapped_column(ForeignKey("imports.id"), index=True)
+    client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(40), index=True)
+    old_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    new_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -278,3 +293,4 @@ Index("ix_clients_manager_status_next_call", Client.manager_id, Client.status_id
 Index("ix_tasks_manager_status_deadline", Task.manager_id, Task.status, Task.deadline)
 Index("ix_daily_reports_manager_date", DailyReport.manager_id, DailyReport.report_date)
 Index("ix_kanban_status_archived", KanbanRequest.status, KanbanRequest.archived_at)
+Index("ix_import_client_changes_import_action", ImportClientChange.import_id, ImportClientChange.action)

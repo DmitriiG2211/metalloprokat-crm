@@ -1,5 +1,6 @@
 import json
 from json import JSONDecodeError
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
@@ -7,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import require_roles
-from app.models import ImportError, ImportJob, Role, User
+from app.models import Client, ClientComment, ImportClientChange, ImportError, ImportJob, Role, User
 from app.schemas import ImportPreview, ImportResult
+from app.services.audit import write_audit
 from app.services.importer import import_dataframe, preview_dataframe, read_upload_with_row_statuses
 
 router = APIRouter(tags=["Import"])
@@ -64,3 +66,45 @@ def get_import(import_id: int, db: Session = Depends(get_db), _: User = Depends(
 @router.get("/imports/{import_id}/errors")
 def import_errors(import_id: int, db: Session = Depends(get_db), _: User = Depends(require_roles(Role.admin, Role.director))):
     return db.scalars(select(ImportError).where(ImportError.import_id == import_id).order_by(ImportError.row_number)).all()
+
+
+@router.post("/imports/{import_id}/rollback")
+def rollback_import(import_id: int, user: User = Depends(require_roles(Role.admin, Role.director)), db: Session = Depends(get_db)):
+    job = db.get(ImportJob, import_id)
+    if not job:
+        raise HTTPException(404, "Импорт не найден")
+    if job.rolled_back_at:
+        raise HTTPException(409, "Импорт уже был откатан")
+
+    changes = db.scalars(
+        select(ImportClientChange).where(ImportClientChange.import_id == import_id, ImportClientChange.action == "created")
+    ).all()
+    client_ids = {change.client_id for change in changes if change.client_id}
+    if client_ids:
+        clients = db.scalars(select(Client).where(Client.id.in_(client_ids), Client.deleted_at.is_(None))).all()
+    else:
+        clients = db.scalars(select(Client).where(Client.source_import_id == import_id, Client.deleted_at.is_(None))).all()
+
+    now = datetime.now(timezone.utc)
+    for client in clients:
+        client.deleted_at = now
+    if clients:
+        db.query(ClientComment).filter(ClientComment.client_id.in_([client.id for client in clients]), ClientComment.deleted_at.is_(None)).update(
+            {ClientComment.deleted_at: now},
+            synchronize_session=False,
+        )
+
+    job.rolled_back_at = now
+    job.rolled_back_by = user.id
+    job.rollback_note = f"Откатано клиентов: {len(clients)}"
+    job.status = "rolled_back"
+    write_audit(
+        db,
+        user,
+        "rollback_import",
+        "import",
+        job.id,
+        new_value={"filename": job.filename, "rolled_back_clients": len(clients)},
+    )
+    db.commit()
+    return {"ok": True, "import_id": job.id, "rolled_back_clients": len(clients), "rolled_back_at": job.rolled_back_at}
