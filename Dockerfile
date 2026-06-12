@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS frontend-build
+FROM mirror.gcr.io/library/node:22-alpine AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.12-slim
+FROM mirror.gcr.io/library/python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV FRONTEND_DIST_PATH=/app/frontend_dist
