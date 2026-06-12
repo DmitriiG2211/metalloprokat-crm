@@ -1,6 +1,6 @@
 """post MVP schema and import rollback
 
-Revision ID: 0002_post_mvp_schema_and_import_rollback
+Revision ID: 0002_import_rollback
 Revises: 0001_initial
 Create Date: 2026-06-12
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-revision: str = "0002_post_mvp_schema_and_import_rollback"
+revision: str = "0002_import_rollback"
 down_revision: str | None = "0001_initial"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
