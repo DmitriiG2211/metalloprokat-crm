@@ -37,6 +37,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ReactNode, useMemo, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { userDisplayName } from "../display";
 import { Client, Task, User } from "../types";
 import { ErrorBoundary } from "./ErrorBoundary";
 
@@ -185,12 +186,14 @@ export function Layout({ user }: { user: User }) {
   };
 
   const navList = (
-    <Box sx={{ overflow: "auto", p: 1 }}>
+    <Box sx={{ overflow: "auto", p: 1.25 }}>
       <Box className="sidebar-workspace">
-        <Box className="workspace-mark">М</Box>
+        <Box className="workspace-mark">
+          <Box component="img" src="/logo.jpg" alt="Мегаполис" />
+        </Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography className="workspace-name">Мегаполис</Typography>
-          <Typography className="workspace-meta">CRM workspace</Typography>
+          <Typography className="workspace-name">CRM Мегаполис</Typography>
+          <Typography className="workspace-meta">Металлопрокат</Typography>
         </Box>
       </Box>
       {sections.map((section) => {
@@ -240,13 +243,21 @@ export function Layout({ user }: { user: User }) {
 
   return (
     <Box className="app-shell" sx={{ display: "flex", minHeight: "100vh" }}>
-      <AppBar className="app-topbar" position="fixed" elevation={0} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <AppBar
+        className="app-topbar"
+        position="fixed"
+        elevation={0}
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          ml: { md: `${drawerWidth}px` }
+        }}
+      >
         <Toolbar sx={{ bgcolor: "background.paper", color: "text.primary" }}>
           <IconButton className="glass-button mobile-menu-button" onClick={() => setMobileOpen(true)} sx={{ mr: 1, display: { md: "none" } }} aria-label="Menu">
             <Menu />
           </IconButton>
           <Box className="brand-lockup" sx={{ flexGrow: 1 }}>
-            <Box component="img" className="brand-logo" src="/logo.jpg" alt="Мегаполис" />
             <Typography className="brand-title" variant="h6" sx={{ fontWeight: 900 }}>
               {currentItem?.label || "CRM Мегаполис"}
             </Typography>
@@ -263,7 +274,7 @@ export function Layout({ user }: { user: User }) {
             </Button>
           </Box>
           <TodayNotifications user={user} />
-          <Chip label={user.full_name} size="small" className="glass-button" sx={{ mr: 1.5, fontWeight: 800 }} />
+          <Chip label={userDisplayName(user)} size="small" className="glass-button user-chip" sx={{ mr: 1.5, fontWeight: 800 }} />
           <Tooltip title="Выйти">
             <IconButton className="glass-button" onClick={logout}>
               <Logout />
@@ -281,7 +292,6 @@ export function Layout({ user }: { user: User }) {
           [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: "border-box", borderRight: "1px solid rgba(255,255,255,0.58)" }
         }}
       >
-        <Toolbar />
         {navList}
       </Drawer>
       <Drawer

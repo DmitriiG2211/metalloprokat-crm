@@ -23,6 +23,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
+import { managerDisplayName } from "../display";
 import { KanbanMailStatus, KanbanMailSyncResult, KanbanRequest, KanbanStatus, SupplierBlacklistItem, User } from "../types";
 
 const columns: Array<{ key: KanbanStatus; title: string; tone: string }> = [
@@ -60,7 +61,7 @@ const formatDateTime = (value?: string | null) => {
 
 function managerName(user?: User | null) {
   if (!user) return "Без менеджера";
-  return user.manager_number ? `Менеджер ${user.manager_number}` : user.full_name || user.login;
+  return managerDisplayName(user);
 }
 
 function KanbanCard({
@@ -233,6 +234,13 @@ export function KanbanPage() {
       ),
     [requests]
   );
+  const todayPrefix = new Date().toISOString().slice(0, 10);
+  const kanbanSummary = {
+    newToday: requests.filter((item) => item.created_at?.slice(0, 10) === todayPrefix).length,
+    inProgress: grouped.in_progress.length,
+    invoiced: grouped.invoiced.length,
+    total: requests.length
+  };
 
   const submitRequest = (event: FormEvent) => {
     event.preventDefault();
@@ -282,24 +290,26 @@ export function KanbanPage() {
         </Tabs>
       </Paper>
       {canSeeManagers && (
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }} sx={{ mb: 2 }}>
-          <Chip
-            icon={<Mail />}
-            label={mailStatus?.configured ? `Yandex: ${mailStatus.user || "подключена"}` : "Yandex почта не настроена"}
-            color={mailStatus?.configured ? "success" : "default"}
-            variant={mailStatus?.configured ? "filled" : "outlined"}
-          />
-          {mailStatus?.configured && (
-            <Typography variant="body2" color="text.secondary">
-              Автоматическая проверка каждые {mailStatus.interval_seconds} сек.
-            </Typography>
-          )}
-          {mailSyncMessage && (
-            <Typography variant="body2" color="text.secondary">
-              {mailSyncMessage}
-            </Typography>
-          )}
-        </Stack>
+        <Paper className="reference-kanban-summary" elevation={0}>
+          <Stack direction="row" spacing={1.5} alignItems="center" className="reference-kanban-mail">
+            <Box className="reference-kanban-mail-icon">
+              <Mail />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography className="reference-panel-title">Почта синхронизирована</Typography>
+              <Typography className="reference-panel-subtitle">
+                {mailStatus?.configured ? `Yandex: ${mailStatus.user || "подключена"} · проверка каждые ${mailStatus.interval_seconds} сек.` : "Yandex почта не настроена"}
+              </Typography>
+              {mailSyncMessage && <Typography variant="caption" color="text.secondary">{mailSyncMessage}</Typography>}
+            </Box>
+          </Stack>
+          <Box className="reference-kanban-metrics">
+            <span><strong>{kanbanSummary.newToday}</strong><small>Новые за сегодня</small></span>
+            <span><strong>{kanbanSummary.inProgress}</strong><small>В работе</small></span>
+            <span><strong>{kanbanSummary.invoiced}</strong><small>Счет выставлен</small></span>
+            <span><strong>{kanbanSummary.total}</strong><small>Всего заявок</small></span>
+          </Box>
+        </Paper>
       )}
 
       {tab === 0 && (

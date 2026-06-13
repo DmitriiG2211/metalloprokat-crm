@@ -28,6 +28,7 @@ import { useOutletContext, useSearchParams } from "react-router-dom";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusChip } from "../components/StatusChip";
+import { managerDisplayName } from "../display";
 import { Client, ClientHistory, Page, Status, User } from "../types";
 
 type ClientPatch = Partial<Pick<Client, "company_name" | "contact_person" | "phone" | "email" | "website" | "status_id" | "last_call_date" | "next_call_date">>;
@@ -297,7 +298,7 @@ function MobileClientCard({
         <Box className="mobile-card-head">
           <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => openHistory(client)} />
           <Typography variant="caption" sx={{ fontWeight: 900, color: "text.secondary" }}>
-            {client.manager?.manager_number || client.manager?.login || "-"}
+            {managerDisplayName(client.manager)}
           </Typography>
         </Box>
 
@@ -568,7 +569,7 @@ export function ClientsPage() {
             <MenuItem value="">Все</MenuItem>
             {managers.map((user) => (
               <MenuItem key={user.id} value={user.id}>
-                {user.login}
+                {managerDisplayName(user)}
               </MenuItem>
             ))}
           </TextField>
@@ -635,7 +636,7 @@ export function ClientsPage() {
                 </ExcelCell>
                 <ExcelCell width="5%">
                   <Typography variant="body2" sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {client.manager?.manager_number || client.manager?.login}
+                    {managerDisplayName(client.manager)}
                   </Typography>
                 </ExcelCell>
               </TableRow>

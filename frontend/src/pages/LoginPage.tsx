@@ -4,13 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, errorMessage } from "../api";
+import { userDisplayName } from "../display";
 import { User } from "../types";
 
 const leaderRoles = new Set(["admin", "director", "senior_manager"]);
 
 function userLabel(user: User) {
-  if (leaderRoles.has(user.role)) return "Руководитель";
-  return user.manager_number ? `Менеджер ${user.manager_number}` : user.full_name;
+  return userDisplayName(user);
 }
 
 export function LoginPage() {

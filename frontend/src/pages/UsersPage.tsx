@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
+import { userDisplayName } from "../display";
 import { User } from "../types";
 
 export function UsersPage() {
@@ -41,7 +42,7 @@ export function UsersPage() {
           <TableHead>
             <TableRow>
               <TableCell>Логин</TableCell>
-              <TableCell>ФИО</TableCell>
+              <TableCell>Отображение</TableCell>
               <TableCell>Роль</TableCell>
               <TableCell>Номер</TableCell>
               <TableCell>Активен</TableCell>
@@ -51,7 +52,7 @@ export function UsersPage() {
             {users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>{user.login}</TableCell>
-                <TableCell>{user.full_name}</TableCell>
+                <TableCell>{userDisplayName(user)}</TableCell>
                 <TableCell>{user.role}</TableCell>
                 <TableCell>{user.manager_number}</TableCell>
                 <TableCell>{user.is_active ? "Да" : "Нет"}</TableCell>

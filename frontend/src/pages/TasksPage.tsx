@@ -1,6 +1,9 @@
-import { AddTask, CheckCircle } from "@mui/icons-material";
+import { AddTask, CalendarMonth, CheckCircle, Search, Tune } from "@mui/icons-material";
 import {
+  Box,
   Button,
+  Checkbox,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -17,9 +20,10 @@ import {
   Typography
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
+import { managerDisplayName } from "../display";
 import { Task, User } from "../types";
 
 const statusLabels: Record<string, string> = {
@@ -27,6 +31,13 @@ const statusLabels: Record<string, string> = {
   in_progress: "В работе",
   done: "Выполнена",
   canceled: "Отменена"
+};
+
+const priorityLabels: Record<string, string> = {
+  low: "Низкий",
+  normal: "Обычный",
+  high: "Высокий",
+  urgent: "Срочно"
 };
 
 const emptyTaskForm = { title: "", manager_id: "", deadline: "", priority: "normal", description: "" };
@@ -53,8 +64,29 @@ export function TasksPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyTaskForm);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
+  const [managerFilter, setManagerFilter] = useState("");
+  const [deadlineFilter, setDeadlineFilter] = useState("");
   const { data: tasks = [] } = useQuery({ queryKey: ["tasks"], queryFn: async () => (await api.get<Task[]>("/tasks")).data });
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: async () => (await api.get<User[]>("/users")).data, retry: false });
+
+  const managers = useMemo(() => users.filter((user) => user.role === "manager"), [users]);
+  const filteredTasks = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return tasks.filter((task) => {
+      const text = [task.title, task.description, task.client?.company_name, managerDisplayName(task.manager)].filter(Boolean).join(" ").toLowerCase();
+      return (
+        (!term || text.includes(term)) &&
+        (!statusFilter || task.status === statusFilter) &&
+        (!priorityFilter || task.priority === priorityFilter) &&
+        (!managerFilter || String(task.manager_id) === managerFilter) &&
+        (!deadlineFilter || task.deadline === deadlineFilter)
+      );
+    });
+  }, [deadlineFilter, managerFilter, priorityFilter, search, statusFilter, tasks]);
+
   const create = useMutation({
     mutationFn: async () => (await api.post("/tasks", { ...form, manager_id: Number(form.manager_id), deadline: form.deadline || undefined })).data,
     onSuccess: () => {
@@ -78,73 +110,110 @@ export function TasksPage() {
         title="Задачи"
         actions={
           <Button variant="contained" startIcon={<AddTask />} onClick={() => setOpen(true)}>
-            Создать
+            Создать задачу
           </Button>
         }
       />
-      <Paper className="table-scroll glass-surface" sx={{ borderRadius: "8px" }} elevation={0}>
-        <Table size="small" className="premium-table">
-          <TableHead>
-            <TableRow>
-              <TableCell>Задача</TableCell>
-              <TableCell>Клиент</TableCell>
-              <TableCell>Менеджер</TableCell>
-              <TableCell>Срок</TableCell>
-              <TableCell>Статус</TableCell>
-              <TableCell>Выполнено</TableCell>
-              <TableCell align="right">Действия</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {tasks.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell sx={{ minWidth: 280 }}>
-                  <Stack spacing={0.4}>
-                    <Typography fontWeight={850} variant="body2">
-                      {task.title}
-                    </Typography>
-                    {task.description && (
-                      <Typography color="text.secondary" variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-                        {task.description}
-                      </Typography>
-                    )}
-                  </Stack>
-                </TableCell>
-                <TableCell>{task.client?.company_name}</TableCell>
-                <TableCell>{task.manager?.login}</TableCell>
-                <TableCell>{formatDate(task.deadline)}</TableCell>
-                <TableCell>{statusLabels[task.status] || task.status}</TableCell>
-                <TableCell>{formatDateTime(task.completed_at)}</TableCell>
-                <TableCell align="right">
-                  {task.status !== "done" && (
-                    <Button size="small" startIcon={<CheckCircle />} onClick={() => complete.mutate(task.id)}>
-                      Выполнить
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
+
+      <Paper className="reference-filter-card" elevation={0}>
+        <Box className="reference-filter-grid">
+          <TextField size="small" label="Поиск" placeholder="Задача, клиент, описание..." value={search} onChange={(e) => setSearch(e.target.value)} InputProps={{ startAdornment: <Search fontSize="small" sx={{ mr: 1 }} /> }} />
+          <TextField select size="small" label="Статус" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <MenuItem value="">Все статусы</MenuItem>
+            {Object.entries(statusLabels).map(([key, label]) => (
+              <MenuItem key={key} value={key}>{label}</MenuItem>
             ))}
-            {tasks.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7}>У вас нет задач</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+          </TextField>
+          <TextField select size="small" label="Приоритет" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+            <MenuItem value="">Все приоритеты</MenuItem>
+            {Object.entries(priorityLabels).map(([key, label]) => (
+              <MenuItem key={key} value={key}>{label}</MenuItem>
+            ))}
+          </TextField>
+          <TextField select size="small" label="Менеджер" value={managerFilter} onChange={(e) => setManagerFilter(e.target.value)}>
+            <MenuItem value="">Все менеджеры</MenuItem>
+            {managers.map((manager) => (
+              <MenuItem key={manager.id} value={manager.id}>{managerDisplayName(manager)}</MenuItem>
+            ))}
+          </TextField>
+          <TextField type="date" size="small" label="Срок" value={deadlineFilter} onChange={(e) => setDeadlineFilter(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <Chip icon={<Tune />} label={`Найдено: ${filteredTasks.length}`} className="reference-filter-chip" />
+        </Box>
       </Paper>
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm" PaperProps={{ className: "glass-surface", sx: { borderRadius: "8px" } }}>
+
+      <Paper className="reference-table-card" elevation={0}>
+        <div className="table-scroll">
+          <Table size="small" className="premium-table reference-tasks-table">
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox" />
+                <TableCell>Задача</TableCell>
+                <TableCell>Клиент</TableCell>
+                <TableCell>Менеджер</TableCell>
+                <TableCell>Срок</TableCell>
+                <TableCell>Приоритет</TableCell>
+                <TableCell>Статус</TableCell>
+                <TableCell>Выполнено</TableCell>
+                <TableCell align="right">Действия</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredTasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell padding="checkbox">
+                    <Checkbox checked={task.status === "done"} disabled={task.status === "done"} onChange={() => complete.mutate(task.id)} />
+                  </TableCell>
+                  <TableCell sx={{ minWidth: 320 }}>
+                    <Stack spacing={0.35}>
+                      <Typography fontWeight={850} variant="body2">{task.title}</Typography>
+                      {task.description && <Typography color="text.secondary" variant="body2" className="reference-task-description">{task.description}</Typography>}
+                    </Stack>
+                  </TableCell>
+                  <TableCell>{task.client?.company_name || "Без клиента"}</TableCell>
+                  <TableCell>{managerDisplayName(task.manager)}</TableCell>
+                  <TableCell>
+                    <Chip size="small" icon={<CalendarMonth />} label={formatDate(task.deadline)} />
+                  </TableCell>
+                  <TableCell>
+                    <Chip size="small" className={`priority-chip priority-${task.priority || "normal"}`} label={priorityLabels[task.priority] || task.priority || "Обычный"} />
+                  </TableCell>
+                  <TableCell>
+                    <Chip size="small" label={statusLabels[task.status] || task.status} />
+                  </TableCell>
+                  <TableCell>{formatDateTime(task.completed_at)}</TableCell>
+                  <TableCell align="right">
+                    {task.status !== "done" && (
+                      <Button size="small" startIcon={<CheckCircle />} onClick={() => complete.mutate(task.id)}>
+                        Выполнить
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredTasks.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9}>Задачи не найдены</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm" PaperProps={{ className: "glass-surface", sx: { borderRadius: "12px" } }}>
         <DialogTitle>Новая задача</DialogTitle>
         <DialogContent>
           <Stack id="task-form" component="form" spacing={2} sx={{ pt: 1 }} onSubmit={submit}>
             <TextField required label="Название" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             <TextField select required label="Менеджер" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
-              {users
-                .filter((user) => user.role === "manager")
-                .map((user) => (
-                  <MenuItem key={user.id} value={user.id}>
-                    {user.login}
-                  </MenuItem>
-                ))}
+              {managers.map((user) => (
+                <MenuItem key={user.id} value={user.id}>{managerDisplayName(user)}</MenuItem>
+              ))}
+            </TextField>
+            <TextField select label="Приоритет" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
+              {Object.entries(priorityLabels).map(([key, label]) => (
+                <MenuItem key={key} value={key}>{label}</MenuItem>
+              ))}
             </TextField>
             <TextField
               type="date"

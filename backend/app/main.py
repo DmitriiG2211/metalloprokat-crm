@@ -90,4 +90,7 @@ if frontend_dist and frontend_dist.exists():
         requested_path = frontend_dist / full_path
         if requested_path.is_file():
             return FileResponse(requested_path)
-        return FileResponse(frontend_dist / "index.html")
+        return FileResponse(
+            frontend_dist / "index.html",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
+        )

@@ -1,23 +1,39 @@
 import {
   AccountTree,
   Assignment,
-  BackupTable,
+  CalendarMonth,
   EventBusy,
   EventRepeat,
   Groups,
   Insights,
-  OpenInNew,
+  MoreVert,
   People,
+  Phone,
   QueryStats,
   UploadFile
 } from "@mui/icons-material";
-import { Box, Button, Chip, LinearProgress, Paper, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  LinearProgress,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography
+} from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { ReactNode } from "react";
-import { Link as RouterLink, useOutletContext } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { Client, Page, Task, User } from "../types";
+import { managerDisplayName } from "../display";
+import { Client, DailyReportSummaryRow, Page, Task } from "../types";
 
 interface DashboardStats {
   clients_total: number;
@@ -32,14 +48,6 @@ interface StatusReport {
   count: number;
 }
 
-interface ManagerReport {
-  id: number;
-  login: string;
-  full_name: string;
-  manager_number?: string | null;
-  clients_total: number;
-}
-
 const taskStatusLabels: Record<string, string> = {
   new: "Новая",
   in_progress: "В работе",
@@ -47,15 +55,20 @@ const taskStatusLabels: Record<string, string> = {
   canceled: "Отменена"
 };
 
-const todayIso = () => {
+const managerPalette = ["#2f80ed", "#42a5f5", "#7e57c2", "#26a69a", "#8d6e63", "#78909c"];
+
+const toIsoDate = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const todayIso = () => toIsoDate(new Date());
+const monthStartIso = () => {
   const date = new Date();
-  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return offsetDate.toISOString().slice(0, 10);
+  return toIsoDate(new Date(date.getFullYear(), date.getMonth(), 1));
 };
 
 const formatDate = (value?: string | null) => {
   if (!value) return "Без даты";
-  return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(date);
 };
 
 function Metric({
@@ -72,65 +85,35 @@ function Metric({
   tone: "blue" | "green" | "amber" | "red";
 }) {
   return (
-    <Paper className={`glass-surface crm-metric crm-metric-${tone}`} sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
-      <Stack direction="row" spacing={1.25} alignItems="center">
-        <Box className="crm-metric-icon">{icon}</Box>
-        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 850 }}>
-          {label}
-        </Typography>
-      </Stack>
-      <Typography variant="h4" sx={{ mt: 1.25, lineHeight: 1 }}>
-        {value}
-      </Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75, fontWeight: 700 }}>
-        {helper}
-      </Typography>
+    <Paper className={`reference-metric crm-metric-${tone}`} elevation={0}>
+      <Box className="reference-metric-icon">{icon}</Box>
+      <Box>
+        <Typography className="reference-metric-label">{label}</Typography>
+        <Typography className="reference-metric-value">{value}</Typography>
+        <Typography className="reference-metric-helper">{helper}</Typography>
+      </Box>
     </Paper>
   );
 }
 
-function ObjectCard({
-  title,
-  description,
-  icon,
-  to,
-  label
-}: {
-  title: string;
-  description: string;
-  icon: ReactNode;
-  to: string;
-  label: string;
-}) {
+function ManagerAvatar({ number, index = 0 }: { number?: string | null; index?: number }) {
   return (
-    <Paper className="glass-surface crm-object-card" sx={{ p: 1.5, borderRadius: "8px" }} elevation={0}>
-      <Stack direction="row" spacing={1.25} alignItems="flex-start">
-        <Box className="crm-object-icon">{icon}</Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontWeight: 900 }}>{title}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
-            {description}
-          </Typography>
-          <Button component={RouterLink} to={to} size="small" endIcon={<OpenInNew />} sx={{ mt: 0.8, px: 0 }}>
-            {label}
-          </Button>
-        </Box>
-      </Stack>
-    </Paper>
+    <Box className="reference-manager-avatar" sx={{ backgroundColor: managerPalette[index % managerPalette.length] }}>
+      {number || "M"}
+    </Box>
   );
 }
 
 function EmptyLine({ text }: { text: string }) {
   return (
-    <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+    <Typography variant="body2" color="text.secondary" sx={{ py: 1.5 }}>
       {text}
     </Typography>
   );
 }
 
 export function DashboardPage() {
-  const { user } = useOutletContext<{ user: User }>();
-  const canSeeManagers = false;
+  const today = todayIso();
 
   const { data: stats } = useQuery({
     queryKey: ["dashboard"],
@@ -140,10 +123,14 @@ export function DashboardPage() {
     queryKey: ["dashboard-statuses"],
     queryFn: async () => (await api.get<StatusReport[]>("/reports/statuses")).data
   });
-  const { data: managers = [] } = useQuery({
-    queryKey: ["dashboard-managers"],
-    queryFn: async () => (await api.get<ManagerReport[]>("/reports/managers")).data,
-    enabled: canSeeManagers,
+  const { data: managerSummary = [] } = useQuery({
+    queryKey: ["dashboard-manager-summary", monthStartIso(), today],
+    queryFn: async () =>
+      (
+        await api.get<DailyReportSummaryRow[]>("/daily-reports/summary", {
+          params: { date_from: monthStartIso(), date_to: today }
+        })
+      ).data,
     retry: false
   });
   const { data: tasks = [] } = useQuery({
@@ -168,11 +155,12 @@ export function DashboardPage() {
       ).data
   });
 
-  const activeTasks = tasks.filter((task) => !["done", "canceled"].includes(task.status)).slice(0, 5);
+  const activeTasks = tasks.filter((task) => !["done", "canceled"].includes(task.status)).slice(0, 6);
   const focusClients = [...overdueReminders, ...todayReminders].slice(0, 6);
   const totalByStatus = statuses.reduce((sum, status) => sum + status.count, 0);
-  const topManagers = [...managers].sort((a, b) => b.clients_total - a.clients_total).slice(0, 5);
-  const today = todayIso();
+  const topManagers = [...managerSummary]
+    .sort((a, b) => b.total_calls + b.invoice_count * 3 + b.advertising_total - (a.total_calls + a.invoice_count * 3 + a.advertising_total))
+    .slice(0, 5);
 
   return (
     <>
@@ -180,7 +168,7 @@ export function DashboardPage() {
         title="Рабочий стол"
         actions={
           <>
-            <Button component={RouterLink} to="/clients" startIcon={<BackupTable />}>
+            <Button component={RouterLink} to="/clients" startIcon={<Groups />}>
               Клиенты
             </Button>
             <Button component={RouterLink} to="/import" variant="contained" startIcon={<UploadFile />}>
@@ -190,25 +178,23 @@ export function DashboardPage() {
         }
       />
 
-      <Box className="crm-metric-grid">
-        <Metric label="Всего клиентов" value={stats?.clients_total ?? 0} helper="Активная база без удаленных записей" icon={<People />} tone="blue" />
+      <Box className="reference-metric-grid">
+        <Metric label="Всего клиентов" value={stats?.clients_total ?? 0} helper="Активная база без скрытых записей" icon={<People />} tone="blue" />
         <Metric label="Позвонить сегодня" value={stats?.calls_today ?? 0} helper="Запланированные контакты на сегодня" icon={<EventRepeat />} tone="green" />
         <Metric label="Просроченные звонки" value={stats?.overdue_calls ?? 0} helper="Требуют внимания в первую очередь" icon={<EventBusy />} tone="red" />
         <Metric label="Активные задачи" value={stats?.active_tasks ?? 0} helper="Открытые поручения по менеджерам" icon={<Assignment />} tone="amber" />
       </Box>
 
-      <Box className="crm-dashboard-grid">
-        <Paper className="glass-surface crm-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+      <Box className="reference-dashboard-grid">
+        <Paper className="reference-panel" elevation={0}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
             <Box>
-              <Typography variant="h6">Воронка клиентов</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Распределение базы по статусам
-              </Typography>
+              <Typography className="reference-panel-title">Воронка клиентов</Typography>
+              <Typography className="reference-panel-subtitle">Распределение базы по статусам</Typography>
             </Box>
-            <AccountTree color="primary" />
+            <Chip size="small" icon={<AccountTree />} label="Все менеджеры" />
           </Stack>
-          <Stack spacing={1.25}>
+          <Stack spacing={1.35}>
             {statuses.map((status) => {
               const percent = totalByStatus ? Math.round((status.count / totalByStatus) * 100) : 0;
               return (
@@ -221,142 +207,163 @@ export function DashboardPage() {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 850 }}>
-                      {status.count}
+                      {status.count} ({percent}%)
                     </Typography>
                   </Stack>
-                  <LinearProgress className="crm-status-progress" variant="determinate" value={percent} sx={{ mt: 0.75 }} />
+                  <LinearProgress className="crm-status-progress reference-progress" variant="determinate" value={percent} sx={{ mt: 0.8 }} />
                 </Box>
               );
             })}
             {statuses.length === 0 && <EmptyLine text="Статусы пока не настроены" />}
           </Stack>
+          <Typography className="reference-panel-total">Всего клиентов: {totalByStatus}</Typography>
         </Paper>
 
-        <Paper className="glass-surface crm-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+        <Paper className="reference-panel" elevation={0}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
             <Box>
-              <Typography variant="h6">Фокус дня</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Просроченные и сегодняшние перезвоны
-              </Typography>
+              <Typography className="reference-panel-title">Фокус дня</Typography>
+              <Typography className="reference-panel-subtitle">Просроченные и сегодняшние перезвоны</Typography>
             </Box>
             <Button component={RouterLink} to="/reminders" size="small">
               Открыть
             </Button>
           </Stack>
-          <Stack spacing={1}>
-            {focusClients.map((client) => (
-              <Box className="crm-list-row" key={`${client.id}-${client.next_call_date}`}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {client.company_name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {client.phone || "Телефон не указан"}
-                  </Typography>
+          <Stack spacing={0.25}>
+            {focusClients.map((client) => {
+              const isOverdue = Boolean(client.next_call_date && client.next_call_date < today);
+              return (
+                <Box className="reference-focus-row" key={`${client.id}-${client.next_call_date}`}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography className="reference-row-title">{client.company_name}</Typography>
+                    <Typography className="reference-row-caption">{client.phone || "Телефон не указан"}</Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    icon={<CalendarMonth />}
+                    label={formatDate(client.next_call_date)}
+                    color={isOverdue ? "error" : "success"}
+                    variant={isOverdue ? "outlined" : "filled"}
+                  />
+                  <Phone color="primary" fontSize="small" />
                 </Box>
-                <Chip size="small" label={formatDate(client.next_call_date)} color={client.next_call_date && client.next_call_date < today ? "error" : "default"} />
-              </Box>
-            ))}
+              );
+            })}
             {focusClients.length === 0 && <EmptyLine text="На сегодня критичных перезвонов нет" />}
           </Stack>
         </Paper>
 
-        <Paper className="glass-surface crm-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+        <Paper className="reference-panel" elevation={0}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
             <Box>
-              <Typography variant="h6">Активные задачи</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Ближайшие поручения в работе
-              </Typography>
+              <Typography className="reference-panel-title">Лучшие менеджеры</Typography>
+              <Typography className="reference-panel-subtitle">Сводка за текущий месяц</Typography>
             </Box>
-            <Button component={RouterLink} to="/tasks" size="small">
-              Все задачи
-            </Button>
+            <QueryStats color="primary" />
           </Stack>
           <Stack spacing={1}>
-            {activeTasks.map((task) => (
-              <Box className="crm-list-row" key={task.id}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {task.title}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {task.client?.company_name || task.manager?.login || "Без клиента"}
-                  </Typography>
+            {topManagers.map((manager, index) => (
+              <Box className="reference-rank-row" key={manager.manager_id}>
+                <Box className="reference-rank-place">{index + 1}</Box>
+                <ManagerAvatar number={manager.manager_number} index={index} />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography className="reference-row-title">{managerDisplayName(manager)}</Typography>
+                  <Typography className="reference-row-caption">Отчётов: {manager.reports_count}</Typography>
                 </Box>
-                <Chip size="small" label={taskStatusLabels[task.status] || task.status} />
+                <Box className="reference-rank-stats">
+                  <span>{manager.total_calls}<small>звонков</small></span>
+                  <span>{manager.invoice_count}<small>счетов</small></span>
+                  <span>{manager.advertising_total}<small>реклама</small></span>
+                </Box>
               </Box>
             ))}
-            {activeTasks.length === 0 && <EmptyLine text="Открытых задач нет" />}
+            {topManagers.length === 0 && <EmptyLine text="Отчётов по менеджерам пока нет" />}
           </Stack>
-        </Paper>
-
-        <Paper className="glass-surface crm-panel" sx={{ p: 2, borderRadius: "8px" }} elevation={0}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-            <Box>
-              <Typography variant="h6">Последние клиенты</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Недавно обновленные записи
-              </Typography>
-            </Box>
-            <Insights color="primary" />
-          </Stack>
-          <Stack spacing={1}>
-            {recentClients?.items.map((client) => (
-              <Box className="crm-list-row" key={client.id}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {client.company_name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {client.manager?.manager_number || client.manager?.login || "Без менеджера"}
-                  </Typography>
-                </Box>
-                <Chip size="small" label={client.status?.name || "Без статуса"} />
-              </Box>
-            ))}
-            {recentClients?.items.length === 0 && <EmptyLine text="Клиентов пока нет" />}
-          </Stack>
+          <Button component={RouterLink} to="/reports" size="small" sx={{ mt: 1.5 }}>
+            Перейти к отчёту
+          </Button>
         </Paper>
       </Box>
 
-      <Box className="crm-object-grid">
-        <ObjectCard title="Клиенты" description="Объектная база компаний с inline-редактированием и фильтрами." icon={<BackupTable />} to="/clients" label="Открыть базу" />
-        <ObjectCard title="Звонки" description="Сегодня, просрочка и ближайшие напоминания для менеджеров." icon={<EventRepeat />} to="/reminders" label="Проверить" />
-        <ObjectCard title="Задачи" description="Поручения, статусы исполнения и контроль сроков." icon={<Assignment />} to="/tasks" label="Перейти" />
-        <ObjectCard title="Отчеты" description="Сводка по менеджерам, звонкам, счетам и заявкам." icon={<QueryStats />} to="/reports" label="Смотреть" />
-      </Box>
-
-      {canSeeManagers && (
-        <Paper className="glass-surface crm-panel" sx={{ p: 2, mt: 2, borderRadius: "8px" }} elevation={0}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-            <Box>
-              <Typography variant="h6">Команда продаж</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Нагрузка менеджеров по количеству клиентов
-              </Typography>
-            </Box>
-            <Groups color="primary" />
-          </Stack>
-          <Box className="crm-manager-grid">
-            {topManagers.map((manager) => (
-              <Box className="crm-manager-row" key={manager.id}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 900 }}>
-                    {manager.manager_number ? `Менеджер ${manager.manager_number}` : manager.login}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {manager.full_name}
-                  </Typography>
-                </Box>
-                <Typography sx={{ fontWeight: 950 }}>{manager.clients_total}</Typography>
-              </Box>
-            ))}
-            {topManagers.length === 0 && <EmptyLine text="Данные по менеджерам недоступны" />}
+      <Paper className="reference-table-card" elevation={0}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+          <Box>
+            <Typography className="reference-panel-title">Активные задачи</Typography>
+            <Typography className="reference-panel-subtitle">Ближайшие поручения в работе</Typography>
           </Box>
-        </Paper>
-      )}
+          <Button component={RouterLink} to="/tasks" size="small">
+            Все задачи
+          </Button>
+        </Stack>
+        <div className="table-scroll">
+          <Table size="small" className="premium-table reference-task-table">
+            <TableHead>
+              <TableRow>
+                <TableCell>Задача</TableCell>
+                <TableCell>Клиент</TableCell>
+                <TableCell>Менеджер</TableCell>
+                <TableCell>Срок</TableCell>
+                <TableCell>Статус</TableCell>
+                <TableCell align="right" />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activeTasks.map((task, index) => (
+                <TableRow key={task.id}>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={850}>{task.title}</Typography>
+                  </TableCell>
+                  <TableCell>{task.client?.company_name || "Без клиента"}</TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <ManagerAvatar number={task.manager?.manager_number} index={index} />
+                      <span>{managerDisplayName(task.manager)}</span>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Chip size="small" icon={<CalendarMonth />} label={formatDate(task.deadline)} />
+                  </TableCell>
+                  <TableCell>
+                    <Chip size="small" label={taskStatusLabels[task.status] || task.status} />
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" component={RouterLink} to="/tasks">
+                      <MoreVert fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {activeTasks.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>Открытых задач нет</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Paper>
+
+      <Paper className="reference-table-card reference-recent-card" elevation={0}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+          <Box>
+            <Typography className="reference-panel-title">Последние изменения в базе</Typography>
+            <Typography className="reference-panel-subtitle">Недавно обновлённые клиенты</Typography>
+          </Box>
+          <Insights color="primary" />
+        </Stack>
+        <Box className="reference-recent-grid">
+          {recentClients?.items.map((client, index) => (
+            <Box className="reference-recent-item" key={client.id}>
+              <ManagerAvatar number={client.manager?.manager_number} index={index} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography className="reference-row-title">{client.company_name}</Typography>
+                <Typography className="reference-row-caption">{managerDisplayName(client.manager)} · {client.status?.name || "Без статуса"}</Typography>
+              </Box>
+            </Box>
+          ))}
+          {recentClients?.items.length === 0 && <EmptyLine text="Клиентов пока нет" />}
+        </Box>
+      </Paper>
     </>
   );
 }

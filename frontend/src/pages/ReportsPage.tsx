@@ -25,6 +25,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
+import { managerDisplayName } from "../display";
 import { DailyReport, DailyReportSummaryRow, User } from "../types";
 
 type ReportPayload = Omit<DailyReport, "id" | "manager_id" | "manager" | "created_at" | "updated_at">;
@@ -368,7 +369,7 @@ function effectiveNewCalls(report: DailyReport) {
 }
 
 function reportManagerName(report: DailyReport) {
-  return report.manager?.full_name || report.manager?.login || `ID ${report.manager_id}`;
+  return managerDisplayName(report.manager) || `ID ${report.manager_id}`;
 }
 
 function textValue(value?: string | null) {
@@ -502,7 +503,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
   const totalPaid = summary.reduce((sum, row) => sum + row.paid_invoice_count, 0);
   const selectedManager = managers.find((manager) => String(manager.id) === managerId);
   const scopeLabel = selectedManager
-    ? `Сводка: ${selectedManager.manager_number ? `менеджер ${selectedManager.manager_number}` : selectedManager.full_name}`
+    ? `Сводка: ${managerDisplayName(selectedManager).toLowerCase()}`
     : isLeader
       ? "Сводка по всему отделу"
       : "Ваши итоги";
@@ -540,7 +541,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
                 <MenuItem value="">Весь отдел</MenuItem>
                 {managers.map((manager) => (
                   <MenuItem key={manager.id} value={String(manager.id)}>
-                    {manager.manager_number ? `Менеджер ${manager.manager_number}` : manager.login} · {manager.full_name}
+                    {managerDisplayName(manager)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -600,9 +601,9 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
             {sortedSummary.map((row) => (
               <TableRow key={row.manager_id}>
                 <TableCell>
-                  <Typography fontWeight={850}>{row.full_name}</Typography>
+                  <Typography fontWeight={850}>{managerDisplayName(row)}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {row.manager_number || row.login}
+                    Итоги за период
                   </Typography>
                 </TableCell>
                 <TableCell>{row.total_calls}</TableCell>
@@ -651,7 +652,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
                 }}
               >
                 <TableCell>{report.report_date}</TableCell>
-                <TableCell>{report.manager?.full_name || report.manager?.login}</TableCell>
+                <TableCell>{reportManagerName(report)}</TableCell>
                 <TableCell>{effectiveNewCalls(report)}</TableCell>
                 <TableCell>{report.invoice_count}</TableCell>
                 <TableCell sx={{ whiteSpace: "normal", minWidth: 180 }}>{report.invoice_numbers}</TableCell>

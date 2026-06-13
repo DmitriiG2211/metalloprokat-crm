@@ -1,9 +1,25 @@
-import { CloudUpload, DoneAll, Restore } from "@mui/icons-material";
-import { Alert, Button, Chip, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { CloudUpload, DoneAll, Restore, TableRows, TipsAndUpdates } from "@mui/icons-material";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  MenuItem,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography
+} from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
+import { managerDisplayName } from "../display";
 import { ImportJob, ImportRollbackResult, User } from "../types";
 
 const formatDateTime = (value?: string | null) => {
@@ -21,7 +37,7 @@ export function ImportPage() {
   const [error, setError] = useState("");
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: async () => (await api.get<User[]>("/users")).data });
   const { data: imports = [] } = useQuery({ queryKey: ["imports"], queryFn: async () => (await api.get<ImportJob[]>("/imports")).data });
-  const managerById = new Map(users.map((user) => [user.id, user.manager_number ? `Менеджер ${user.manager_number}` : user.full_name]));
+  const managerById = new Map(users.map((user) => [user.id, managerDisplayName(user)]));
 
   const rollbackImport = useMutation({
     mutationFn: async (importId: number) => (await api.post<ImportRollbackResult>(`/imports/${importId}/rollback`)).data,
@@ -58,56 +74,86 @@ export function ImportPage() {
     try {
       setResult((await api.post("/import/confirm", form)).data);
       queryClient.invalidateQueries({ queryKey: ["imports"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
     } catch (err) {
       setError(errorMessage(err));
     }
   };
 
   const confirmRollback = (job: ImportJob) => {
-    const ok = window.confirm(`Откатить импорт "${job.filename}"? Клиенты из этого импорта будут скрыты из базы, но запись импорта останется в истории.`);
+    const ok = window.confirm(`Откатить импорт "${job.filename}"? Клиенты из этого импорта будут скрыты из базы, запись импорта останется в истории.`);
     if (ok) rollbackImport.mutate(job.id);
   };
 
   return (
     <>
       <PageHeader title="Импорт Excel" />
-      <Paper className="glass-surface" sx={{ p: 2, mb: 2, borderRadius: "8px" }} elevation={0}>
-        <Stack spacing={2} sx={{ maxWidth: 720 }}>
-          {error && <Alert severity="error">{error}</Alert>}
-          <Button component="label" variant="outlined" startIcon={<CloudUpload />} sx={{ alignSelf: "flex-start" }}>
-            Выбрать файл
-            <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={(event) => setFile(event.target.files?.[0] || null)} />
-          </Button>
-          {file && <Typography>{file.name}</Typography>}
-          <TextField select label="Назначить менеджеру" value={managerId} onChange={(event) => setManagerId(event.target.value)}>
-            {users
-              .filter((user) => user.role === "manager")
-              .map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.manager_number ? `Менеджер ${user.manager_number}` : user.full_name}
-                </MenuItem>
-              ))}
-          </TextField>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="contained" onClick={previewFile} disabled={!file}>
-              Предпросмотр
+
+      <Paper className="reference-import-card" elevation={0}>
+        <Box className="reference-import-grid">
+          <Box className="reference-upload-zone">
+            <CloudUpload />
+            <Typography className="reference-panel-title">Загрузка базы клиентов</Typography>
+            <Typography className="reference-panel-subtitle">Поддерживаются .xlsx, .xls и .csv. Цвета строк Excel будут учтены при назначении статусов.</Typography>
+            <Button component="label" variant="contained" startIcon={<CloudUpload />}>
+              Выбрать файл
+              <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={(event) => setFile(event.target.files?.[0] || null)} />
             </Button>
-            <Button variant="contained" color="success" startIcon={<DoneAll />} onClick={confirm} disabled={!preview || !managerId}>
-              Импортировать
-            </Button>
+            {file && <Chip className="reference-file-chip" icon={<TableRows />} label={file.name} />}
+          </Box>
+
+          <Stack spacing={1.5} className="reference-import-settings">
+            <Typography className="reference-panel-title">Настройки импорта</Typography>
+            <TextField select label="Назначить менеджеру" value={managerId} onChange={(event) => setManagerId(event.target.value)}>
+              {users
+                .filter((user) => user.role === "manager")
+                .map((user) => (
+                  <MenuItem key={user.id} value={user.id}>
+                    {managerDisplayName(user)}
+                  </MenuItem>
+                ))}
+            </TextField>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Button variant="outlined" onClick={previewFile} disabled={!file}>
+                Предпросмотр
+              </Button>
+              <Button variant="contained" color="success" startIcon={<DoneAll />} onClick={confirm} disabled={!preview || !managerId}>
+                Импортировать
+              </Button>
+            </Stack>
+            {error && <Alert severity="error">{error}</Alert>}
+            {result && (
+              <Alert severity="success">
+                Импорт завершён: создано {result.created_count}, дублей {result.duplicate_count}, пропущено {result.skipped_count}, ошибок {result.error_count}
+              </Alert>
+            )}
+            {rollbackResult && <Alert severity="info">Откат выполнен: скрыто клиентов {rollbackResult.rolled_back_clients}</Alert>}
           </Stack>
-        </Stack>
+
+          <Box className="reference-import-note">
+            <TipsAndUpdates />
+            <Typography className="reference-panel-title">Как это работает</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Сначала проверьте предпросмотр, затем назначьте менеджера и подтвердите импорт. Если файл загрузили ошибочно, его можно откатить из истории без удаления записи.
+            </Typography>
+          </Box>
+        </Box>
       </Paper>
+
       {preview && (
-        <Paper className="glass-surface" sx={{ p: 2, mb: 2, borderRadius: "8px" }} elevation={0}>
-          <Typography fontWeight={800} sx={{ mb: 1 }}>
-            Найдено строк: {preview.total_rows}
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>
+        <Paper className="reference-table-card" elevation={0}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Box>
+              <Typography className="reference-panel-title">Предпросмотр данных</Typography>
+              <Typography className="reference-panel-subtitle">Найдено строк: {preview.total_rows}</Typography>
+            </Box>
+            <Chip label={`Колонок: ${preview.columns.length}`} />
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Сопоставление колонок: {Object.entries(preview.mapping).map(([key, value]) => `${key}: ${value || "не найдено"}`).join(", ")}
           </Typography>
           <div className="table-scroll">
-            <Table size="small">
+            <Table size="small" className="premium-table">
               <TableHead>
                 <TableRow>
                   {preview.columns.map((column: string) => (
@@ -128,22 +174,13 @@ export function ImportPage() {
           </div>
         </Paper>
       )}
-      {result && (
-        <Alert severity="success">
-          Импорт завершен: создано {result.created_count}, дублей {result.duplicate_count}, пропущено {result.skipped_count}, ошибок {result.error_count}
-        </Alert>
-      )}
-      {rollbackResult && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          Откат выполнен: скрыто клиентов {rollbackResult.rolled_back_clients}
-        </Alert>
-      )}
-      <Paper className="glass-surface" sx={{ p: 2, mt: 2, borderRadius: "8px" }} elevation={0}>
-        <Typography fontWeight={900} sx={{ mb: 1.5 }}>
+
+      <Paper className="reference-table-card" elevation={0}>
+        <Typography className="reference-panel-title" sx={{ mb: 1.5 }}>
           История импортов
         </Typography>
         <div className="table-scroll">
-          <Table size="small">
+          <Table size="small" className="premium-table">
             <TableHead>
               <TableRow>
                 <TableCell>Дата</TableCell>

@@ -6,6 +6,7 @@ import { Link as RouterLink, useOutletContext } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusChip } from "../components/StatusChip";
+import { managerDisplayName } from "../display";
 import { Client, Page, User } from "../types";
 
 const endpoints = ["/reminders/today", "/reminders/overdue", "/reminders/upcoming"];
@@ -115,7 +116,7 @@ export function RemindersPage() {
                 <TableCell>
                   <StatusChip status={client.status} />
                 </TableCell>
-                <TableCell>{client.manager?.login}</TableCell>
+                <TableCell>{managerDisplayName(client.manager)}</TableCell>
               </TableRow>
             ))}
             {data.length === 0 && (
@@ -135,7 +136,7 @@ export function RemindersPage() {
                 .filter((manager) => manager.role === "manager")
                 .map((manager) => (
                   <MenuItem key={manager.id} value={manager.id}>
-                    {manager.login} · {manager.full_name}
+                    {managerDisplayName(manager)}
                   </MenuItem>
                 ))}
             </TextField>

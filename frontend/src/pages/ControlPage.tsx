@@ -33,6 +33,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../api";
 import { PageHeader } from "../components/PageHeader";
+import { managerDisplayName } from "../display";
 import { AiAnalysisJobStatus, BaseCleanupStats, ManagerQualityRow, MotivationRow, RefusalAnalytics, User } from "../types";
 
 const toIsoDate = (date: Date) => {
@@ -68,7 +69,7 @@ const formatDuration = (seconds: number) => {
 const managerColors = ["#5b7fa6", "#6f9472", "#b07d62", "#8878a8", "#5f9a9a", "#b58a52", "#9a6f83", "#7f8c8d"];
 
 function managerLabel(row: { login: string; full_name: string; manager_number?: string | null }) {
-  return row.manager_number ? `Менеджер ${row.manager_number}` : row.full_name || row.login;
+  return managerDisplayName(row);
 }
 
 function StatCard({ label, value, icon, helper }: { label: string; value: number | string; icon: ReactNode; helper?: string }) {
@@ -134,7 +135,7 @@ function PeriodFilters({
           <MenuItem value="">Весь отдел</MenuItem>
           {managers.map((manager) => (
             <MenuItem key={manager.id} value={String(manager.id)}>
-              {manager.manager_number ? `Менеджер ${manager.manager_number}` : manager.login} · {manager.full_name}
+              {managerDisplayName(manager)}
             </MenuItem>
           ))}
         </TextField>
@@ -173,7 +174,7 @@ function MotivationPanel({ rows }: { rows: MotivationRow[] }) {
               <Box sx={{ minWidth: 0 }}>
                 <Typography fontWeight={950}>{managerLabel(row)}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {row.full_name}
+                  Активность менеджера
                 </Typography>
                 <Stack direction="row" spacing={0.6} sx={{ mt: 0.7, flexWrap: "wrap", gap: 0.6 }}>
                   {row.badges.map((badge) => (
@@ -220,7 +221,7 @@ function QualityPanel({ rows }: { rows: ManagerQualityRow[] }) {
                   <Box>
                     <Typography fontWeight={850}>{managerLabel(row)}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {row.full_name}
+                      Активность менеджера
                     </Typography>
                   </Box>
                 </Stack>
