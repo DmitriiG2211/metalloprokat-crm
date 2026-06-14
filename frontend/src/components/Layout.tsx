@@ -237,6 +237,9 @@ export function Layout({ user }: { user: User }) {
         <Button className="global-switch-button" href="/certificates" size="small">
           Сертификаты
         </Button>
+        <Button className="global-switch-button" href="/calls-analyzer/" size="small">
+          Анализатор звонков
+        </Button>
       </Box>
     </Box>
   );
@@ -271,6 +274,9 @@ export function Layout({ user }: { user: User }) {
             </Button>
             <Button className="global-switch-button" href="/certificates" size="small">
               Сертификаты
+            </Button>
+            <Button className="global-switch-button" href="/calls-analyzer/" size="small">
+              Анализатор звонков
             </Button>
           </Box>
           <TodayNotifications user={user} />

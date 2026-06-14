@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+storage/
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store

@@ -30,5 +30,83 @@ services:
     ports:
       - "127.0.0.1:8081:8000"
 
+  call_analyzer_db:
+    image: mirror.gcr.io/library/postgres:16-alpine
+    container_name: call-analyzer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: call_analytics
+      POSTGRES_USER: call_analytics
+      POSTGRES_PASSWORD: call_analytics
+    volumes:
+      - call_analyzer_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U call_analytics -d call_analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  call_analyzer_api:
+    build:
+      context: ./call-analyzer/apps/api
+    container_name: call-analyzer-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://call_analytics:call_analytics@call_analyzer_db:5432/call_analytics
+      FRONTEND_ORIGIN: /
+      JWT_SECRET: change-me-in-production
+      LLM_PROVIDER: ${CALL_ANALYZER_LLM_PROVIDER:-mock}
+      TRANSCRIPTION_PROVIDER: ${CALL_ANALYZER_TRANSCRIPTION_PROVIDER:-mock}
+      TIMEWEB_AI_BASE_URL: ${TIMEWEB_AI_BASE_URL:-}
+      TIMEWEB_AI_API_KEY: ${TIMEWEB_AI_API_KEY:-}
+      TIMEWEB_AI_AGENT_ID: ${TIMEWEB_AI_AGENT_ID:-}
+      TIMEWEB_AI_MODEL: ${TIMEWEB_AI_MODEL:-}
+      TIMEWEB_AI_CHAT_COMPLETIONS_PATH: ${TIMEWEB_AI_CHAT_COMPLETIONS_PATH:-}
+      LLM_MAX_COMPLETION_TOKENS: ${CALL_ANALYZER_LLM_MAX_COMPLETION_TOKENS:-1800}
+    depends_on:
+      call_analyzer_db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8084:8000"
+    volumes:
+      - call_analyzer_storage:/app/storage
+
+  call_analyzer_worker:
+    build:
+      context: ./call-analyzer/apps/api
+    container_name: call-analyzer-worker
+    restart: unless-stopped
+    command: python -m app.worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://call_analytics:call_analytics@call_analyzer_db:5432/call_analytics
+      JWT_SECRET: change-me-in-production
+      LLM_PROVIDER: ${CALL_ANALYZER_LLM_PROVIDER:-mock}
+      TRANSCRIPTION_PROVIDER: ${CALL_ANALYZER_TRANSCRIPTION_PROVIDER:-mock}
+      TIMEWEB_AI_BASE_URL: ${TIMEWEB_AI_BASE_URL:-}
+      TIMEWEB_AI_API_KEY: ${TIMEWEB_AI_API_KEY:-}
+      TIMEWEB_AI_AGENT_ID: ${TIMEWEB_AI_AGENT_ID:-}
+      TIMEWEB_AI_MODEL: ${TIMEWEB_AI_MODEL:-}
+      TIMEWEB_AI_CHAT_COMPLETIONS_PATH: ${TIMEWEB_AI_CHAT_COMPLETIONS_PATH:-}
+      LLM_MAX_COMPLETION_TOKENS: ${CALL_ANALYZER_LLM_MAX_COMPLETION_TOKENS:-1800}
+    depends_on:
+      call_analyzer_db:
+        condition: service_healthy
+    volumes:
+      - call_analyzer_storage:/app/storage
+
+  call_analyzer_web:
+    build:
+      context: ./call-analyzer/apps/web
+      args:
+        VITE_API_URL: /calls-analyzer-api
+    container_name: call-analyzer-web
+    restart: unless-stopped
+    depends_on:
+      - call_analyzer_api
+    ports:
+      - "127.0.0.1:8083:80"
+
 volumes:
   postgres_data:
+  call_analyzer_postgres_data:
+  call_analyzer_storage:

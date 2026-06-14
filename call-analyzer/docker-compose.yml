@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: call_analytics
+      POSTGRES_USER: call_analytics
+      POSTGRES_PASSWORD: call_analytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ./apps/api
+    environment:
+      DATABASE_URL: postgresql+psycopg://call_analytics:call_analytics@postgres:5432/call_analytics
+      FRONTEND_ORIGIN: http://localhost:5173
+      JWT_SECRET: change-me-in-production
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      TRANSCRIPTION_PROVIDER: ${TRANSCRIPTION_PROVIDER:-mock}
+      TIMEWEB_AI_BASE_URL: ${TIMEWEB_AI_BASE_URL:-}
+      TIMEWEB_AI_API_KEY: ${TIMEWEB_AI_API_KEY:-}
+      TIMEWEB_AI_AGENT_ID: ${TIMEWEB_AI_AGENT_ID:-}
+      TIMEWEB_AI_MODEL: ${TIMEWEB_AI_MODEL:-}
+      TIMEWEB_AI_CHAT_COMPLETIONS_PATH: ${TIMEWEB_AI_CHAT_COMPLETIONS_PATH:-}
+      LLM_MAX_COMPLETION_TOKENS: ${LLM_MAX_COMPLETION_TOKENS:-1800}
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+    volumes:
+      - api-storage:/app/storage
+
+  worker:
+    build:
+      context: ./apps/api
+    command: python -m app.worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://call_analytics:call_analytics@postgres:5432/call_analytics
+      JWT_SECRET: change-me-in-production
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      TRANSCRIPTION_PROVIDER: ${TRANSCRIPTION_PROVIDER:-mock}
+      TIMEWEB_AI_BASE_URL: ${TIMEWEB_AI_BASE_URL:-}
+      TIMEWEB_AI_API_KEY: ${TIMEWEB_AI_API_KEY:-}
+      TIMEWEB_AI_AGENT_ID: ${TIMEWEB_AI_AGENT_ID:-}
+      TIMEWEB_AI_MODEL: ${TIMEWEB_AI_MODEL:-}
+      TIMEWEB_AI_CHAT_COMPLETIONS_PATH: ${TIMEWEB_AI_CHAT_COMPLETIONS_PATH:-}
+      LLM_MAX_COMPLETION_TOKENS: ${LLM_MAX_COMPLETION_TOKENS:-1800}
+    depends_on:
+      - postgres
+    volumes:
+      - api-storage:/app/storage
+
+  web:
+    build:
+      context: ./apps/web
+    environment:
+      VITE_API_URL: http://localhost:8000
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres-data:
+  api-storage:
