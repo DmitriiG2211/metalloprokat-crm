@@ -42,6 +42,7 @@ import { Client, Task, User } from "../types";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 const drawerWidth = 248;
+const leaderRoles = new Set<User["role"]>(["admin", "director", "senior_manager"]);
 
 type MenuItemConfig = {
   label: string;
@@ -175,6 +176,7 @@ export function Layout({ user }: { user: User }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const canUseCallAnalyzer = leaderRoles.has(user.role);
   const visibleMenu = menu.filter((item) => !item.roles || (item.roles as readonly User["role"][]).includes(user.role));
   const currentItem = visibleMenu.find((item) => item.path === location.pathname) || visibleMenu[0];
   const sections = ["Работа", "Администрирование"] as const;
@@ -237,9 +239,11 @@ export function Layout({ user }: { user: User }) {
         <Button className="global-switch-button" href="/certificates" size="small">
           Сертификаты
         </Button>
-        <Button className="global-switch-button" href="/calls-analyzer/" size="small">
-          Анализатор звонков
-        </Button>
+        {canUseCallAnalyzer && (
+          <Button className="global-switch-button" href="/calls-analyzer/" size="small">
+            Анализатор звонков
+          </Button>
+        )}
       </Box>
     </Box>
   );
@@ -275,9 +279,11 @@ export function Layout({ user }: { user: User }) {
             <Button className="global-switch-button" href="/certificates" size="small">
               Сертификаты
             </Button>
-            <Button className="global-switch-button" href="/calls-analyzer/" size="small">
-              Анализатор звонков
-            </Button>
+            {canUseCallAnalyzer && (
+              <Button className="global-switch-button" href="/calls-analyzer/" size="small">
+                Анализатор звонков
+              </Button>
+            )}
           </Box>
           <TodayNotifications user={user} />
           <Chip label={userDisplayName(user)} size="small" className="glass-button user-chip" sx={{ mr: 1.5, fontWeight: 800 }} />

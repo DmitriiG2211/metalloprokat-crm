@@ -147,6 +147,11 @@ export type ManagerComparisonReport = {
 let token = localStorage.getItem("access_token") ?? "";
 let csrf = localStorage.getItem("csrf_token") ?? "";
 
+function csrfFromCookie() {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 export function setAuth(nextToken: string, nextCsrf: string) {
   token = nextToken;
   csrf = nextCsrf;
@@ -163,6 +168,11 @@ export function clearAuth() {
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
+  const cookieCsrf = csrfFromCookie();
+  if (cookieCsrf && cookieCsrf !== csrf) {
+    csrf = cookieCsrf;
+    localStorage.setItem("csrf_token", cookieCsrf);
+  }
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (csrf) headers.set("X-CSRF-Token", csrf);
   if (!options.form && options.body && !headers.has("Content-Type")) {

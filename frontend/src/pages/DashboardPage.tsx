@@ -29,11 +29,12 @@ import {
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { ReactNode } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useOutletContext } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { managerDisplayName } from "../display";
 import { Client, DailyReportSummaryRow, Page, Task } from "../types";
+import type { User } from "../types";
 
 interface DashboardStats {
   clients_total: number;
@@ -113,6 +114,8 @@ function EmptyLine({ text }: { text: string }) {
 }
 
 export function DashboardPage() {
+  const { user } = useOutletContext<{ user: User }>();
+  const isLeader = ["admin", "director", "senior_manager"].includes(user.role);
   const today = todayIso();
 
   const { data: stats } = useQuery({
@@ -131,7 +134,8 @@ export function DashboardPage() {
           params: { date_from: monthStartIso(), date_to: today }
         })
       ).data,
-    retry: false
+    retry: false,
+    enabled: isLeader
   });
   const { data: tasks = [] } = useQuery({
     queryKey: ["dashboard-tasks"],
@@ -253,36 +257,38 @@ export function DashboardPage() {
           </Stack>
         </Paper>
 
-        <Paper className="reference-panel" elevation={0}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-            <Box>
-              <Typography className="reference-panel-title">Лучшие менеджеры</Typography>
-              <Typography className="reference-panel-subtitle">Сводка за текущий месяц</Typography>
-            </Box>
-            <QueryStats color="primary" />
-          </Stack>
-          <Stack spacing={1}>
-            {topManagers.map((manager, index) => (
-              <Box className="reference-rank-row" key={manager.manager_id}>
-                <Box className="reference-rank-place">{index + 1}</Box>
-                <ManagerAvatar number={manager.manager_number} index={index} />
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography className="reference-row-title">{managerDisplayName(manager)}</Typography>
-                  <Typography className="reference-row-caption">Отчётов: {manager.reports_count}</Typography>
-                </Box>
-                <Box className="reference-rank-stats">
-                  <span>{manager.total_calls}<small>звонков</small></span>
-                  <span>{manager.invoice_count}<small>счетов</small></span>
-                  <span>{manager.advertising_total}<small>реклама</small></span>
-                </Box>
+        {isLeader && (
+          <Paper className="reference-panel" elevation={0}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+              <Box>
+                <Typography className="reference-panel-title">Лучшие менеджеры</Typography>
+                <Typography className="reference-panel-subtitle">Сводка за текущий месяц</Typography>
               </Box>
-            ))}
-            {topManagers.length === 0 && <EmptyLine text="Отчётов по менеджерам пока нет" />}
-          </Stack>
-          <Button component={RouterLink} to="/reports" size="small" sx={{ mt: 1.5 }}>
-            Перейти к отчёту
-          </Button>
-        </Paper>
+              <QueryStats color="primary" />
+            </Stack>
+            <Stack spacing={1}>
+              {topManagers.map((manager, index) => (
+                <Box className="reference-rank-row" key={manager.manager_id}>
+                  <Box className={`reference-rank-place rank-${index + 1}`}>{index + 1}</Box>
+                  <ManagerAvatar number={manager.manager_number} index={index} />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography className="reference-row-title">{managerDisplayName(manager)}</Typography>
+                    <Typography className="reference-row-caption">Отчётов: {manager.reports_count}</Typography>
+                  </Box>
+                  <Box className="reference-rank-stats">
+                    <span>{manager.total_calls}<small>звонков</small></span>
+                    <span>{manager.invoice_count}<small>счетов</small></span>
+                    <span>{manager.advertising_total}<small>реклама</small></span>
+                  </Box>
+                </Box>
+              ))}
+              {topManagers.length === 0 && <EmptyLine text="Отчётов по менеджерам пока нет" />}
+            </Stack>
+            <Button component={RouterLink} to="/reports" size="small" sx={{ mt: 1.5 }}>
+              Перейти к отчёту
+            </Button>
+          </Paper>
+        )}
       </Box>
 
       <Paper className="reference-table-card" elevation={0}>

@@ -2204,15 +2204,23 @@ a {
   color: #ffffff;
   font-size: 12px;
   font-weight: 950;
+  background: #d8e2ef;
+  color: #344054;
+}
+
+.reference-rank-place.rank-1 {
   background: #f2b84b;
+  color: #ffffff;
 }
 
-.reference-rank-row:nth-child(2) .reference-rank-place {
+.reference-rank-place.rank-2 {
   background: #a8b3c5;
+  color: #ffffff;
 }
 
-.reference-rank-row:nth-child(3) .reference-rank-place {
+.reference-rank-place.rank-3 {
   background: #c47b54;
+  color: #ffffff;
 }
 
 .reference-rank-stats {

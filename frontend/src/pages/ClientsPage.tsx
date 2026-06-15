@@ -20,7 +20,8 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  useMediaQuery
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -418,6 +419,7 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
 
 export function ClientsPage() {
   const { user } = useOutletContext<{ user: User }>();
+  const isDesktop = useMediaQuery("(min-width:900px)");
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const focusedClientId = searchParams.get("client_id");
@@ -578,95 +580,97 @@ export function ClientsPage() {
         </Box>
       </Paper>
 
-      <Paper className="desktop-table glass-surface excel-sheet" sx={{ borderRadius: "8px", overflow: "hidden" }} elevation={0}>
-        <Table size="small" className="premium-table excel-table">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ width: "15%" }}>Компания</TableCell>
-              <TableCell sx={{ width: "9%" }}>ФИО</TableCell>
-              <TableCell sx={{ width: "13%" }}>Телефон</TableCell>
-              <TableCell sx={{ width: "13%" }}>Почта</TableCell>
-              <TableCell sx={{ width: "8%" }}>Статус</TableCell>
-              <TableCell sx={{ width: "19%" }}>Комментарий</TableCell>
-              <TableCell sx={{ width: "7%" }}>Звонок</TableCell>
-              <TableCell sx={{ width: "8%" }}>Перезвон</TableCell>
-              <TableCell sx={{ width: "5%" }}>Менеджер</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data?.items.map((client) => (
-              <TableRow key={client.id} hover>
-                <ExcelCell width="15%">
-                  <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => setHistoryClient(client)} />
-                </ExcelCell>
-                <ExcelCell width="9%">
-                  <EditableCell width="100%" value={client.contact_person} onSave={(value) => saveField(client, { contact_person: value })} />
-                </ExcelCell>
-                <ExcelCell width="13%">
-                  <ContactCell value={client.phone} kind="phone" onSave={(value) => saveField(client, { phone: value })} />
-                </ExcelCell>
-                <ExcelCell width="13%">
-                  <ContactCell value={client.email} kind="email" onSave={(value) => saveField(client, { email: value })} />
-                </ExcelCell>
-                <ExcelCell width="8%">
-                  <TextField
-                    className="excel-input"
-                    select
-                    variant="standard"
-                    value={client.status_id || ""}
-                    onChange={(event) => saveField(client, { status_id: Number(event.target.value) })}
-                    fullWidth
-                    InputProps={{ disableUnderline: true }}
-                  >
-                    {statuses.map((status) => (
-                      <MenuItem key={status.id} value={status.id}>
-                        <StatusChip status={status} />
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </ExcelCell>
-                <ExcelCell width="19%">
-                  <CommentCell value={client.last_comment} onSave={(value) => addComment.mutate({ id: client.id, comment: value })} />
-                </ExcelCell>
-                <ExcelCell width="7%">
-                  <EditableCell width="100%" type="date" value={client.last_call_date || ""} onSave={(value) => saveField(client, { last_call_date: value })} />
-                </ExcelCell>
-                <ExcelCell width="8%">
-                  <EditableCell width="100%" type="date" value={client.next_call_date || ""} onSave={(value) => saveField(client, { next_call_date: value })} />
-                </ExcelCell>
-                <ExcelCell width="5%">
-                  <Typography variant="body2" sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {managerDisplayName(client.manager)}
-                  </Typography>
-                </ExcelCell>
-              </TableRow>
-            ))}
-            {!isFetching && data?.items.length === 0 && (
+      {isDesktop ? (
+        <Paper className="desktop-table glass-surface excel-sheet" sx={{ borderRadius: "8px", overflow: "hidden" }} elevation={0}>
+          <Table size="small" className="premium-table excel-table">
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={9}>Клиенты не найдены</TableCell>
+                <TableCell sx={{ width: "15%" }}>Компания</TableCell>
+                <TableCell sx={{ width: "9%" }}>ФИО</TableCell>
+                <TableCell sx={{ width: "13%" }}>Телефон</TableCell>
+                <TableCell sx={{ width: "13%" }}>Почта</TableCell>
+                <TableCell sx={{ width: "8%" }}>Статус</TableCell>
+                <TableCell sx={{ width: "19%" }}>Комментарий</TableCell>
+                <TableCell sx={{ width: "7%" }}>Звонок</TableCell>
+                <TableCell sx={{ width: "8%" }}>Перезвон</TableCell>
+                <TableCell sx={{ width: "5%" }}>Менеджер</TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
-
-      <Stack className="mobile-list mobile-client-list" spacing={1.25}>
-        {data?.items.map((client) => (
-          <MobileClientCard
-            key={client.id}
-            client={client}
-            statuses={statuses}
-            saveField={saveField}
-            addComment={(id, comment) => addComment.mutate({ id, comment })}
-            openHistory={setHistoryClient}
-          />
-        ))}
-        {!isFetching && data?.items.length === 0 && (
-          <Paper className="glass-surface mobile-empty-state" elevation={0}>
-            <Typography>Клиенты не найдены</Typography>
-          </Paper>
-        )}
-      </Stack>
+            </TableHead>
+            <TableBody>
+              {data?.items.map((client) => (
+                <TableRow key={client.id} hover>
+                  <ExcelCell width="15%">
+                    <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => setHistoryClient(client)} />
+                  </ExcelCell>
+                  <ExcelCell width="9%">
+                    <EditableCell width="100%" value={client.contact_person} onSave={(value) => saveField(client, { contact_person: value })} />
+                  </ExcelCell>
+                  <ExcelCell width="13%">
+                    <ContactCell value={client.phone} kind="phone" onSave={(value) => saveField(client, { phone: value })} />
+                  </ExcelCell>
+                  <ExcelCell width="13%">
+                    <ContactCell value={client.email} kind="email" onSave={(value) => saveField(client, { email: value })} />
+                  </ExcelCell>
+                  <ExcelCell width="8%">
+                    <TextField
+                      className="excel-input"
+                      select
+                      variant="standard"
+                      value={client.status_id || ""}
+                      onChange={(event) => saveField(client, { status_id: Number(event.target.value) })}
+                      fullWidth
+                      InputProps={{ disableUnderline: true }}
+                    >
+                      {statuses.map((status) => (
+                        <MenuItem key={status.id} value={status.id}>
+                          <StatusChip status={status} />
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </ExcelCell>
+                  <ExcelCell width="19%">
+                    <CommentCell value={client.last_comment} onSave={(value) => addComment.mutate({ id: client.id, comment: value })} />
+                  </ExcelCell>
+                  <ExcelCell width="7%">
+                    <EditableCell width="100%" type="date" value={client.last_call_date || ""} onSave={(value) => saveField(client, { last_call_date: value })} />
+                  </ExcelCell>
+                  <ExcelCell width="8%">
+                    <EditableCell width="100%" type="date" value={client.next_call_date || ""} onSave={(value) => saveField(client, { next_call_date: value })} />
+                  </ExcelCell>
+                  <ExcelCell width="5%">
+                    <Typography variant="body2" sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {managerDisplayName(client.manager)}
+                    </Typography>
+                  </ExcelCell>
+                </TableRow>
+              ))}
+              {!isFetching && data?.items.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9}>Клиенты не найдены</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      ) : (
+        <Stack className="mobile-list mobile-client-list" spacing={1.25}>
+          {data?.items.map((client) => (
+            <MobileClientCard
+              key={client.id}
+              client={client}
+              statuses={statuses}
+              saveField={saveField}
+              addComment={(id, comment) => addComment.mutate({ id, comment })}
+              openHistory={setHistoryClient}
+            />
+          ))}
+          {!isFetching && data?.items.length === 0 && (
+            <Paper className="glass-surface mobile-empty-state" elevation={0}>
+              <Typography>Клиенты не найдены</Typography>
+            </Paper>
+          )}
+        </Stack>
+      )}
 
       <Stack className="pagination-bar" direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
         <Typography variant="body2">Всего: {data?.total ?? 0}</Typography>
