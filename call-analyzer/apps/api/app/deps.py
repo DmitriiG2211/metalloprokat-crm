@@ -9,6 +9,17 @@ from app.models import User
 from app.security import decode_token
 
 
+def csrf_tokens_from_cookie_header(cookie_header: str | None) -> set[str]:
+    if not cookie_header:
+        return set()
+    tokens: set[str] = set()
+    for part in cookie_header.split(";"):
+        name, separator, value = part.strip().partition("=")
+        if separator and name == "csrf_token" and value:
+            tokens.add(value)
+    return tokens
+
+
 def current_user(
     request: Request,
     authorization: str | None = Header(default=None),
@@ -46,7 +57,7 @@ def csrf_guard(
     user: User = Depends(current_user),
 ) -> User:
     if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get("access_token"):
-        cookie_token = request.cookies.get("csrf_token")
-        if cookie_token and x_csrf_token != cookie_token:
+        cookie_tokens = csrf_tokens_from_cookie_header(request.headers.get("cookie"))
+        if cookie_tokens and x_csrf_token not in cookie_tokens:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token mismatch")
     return user

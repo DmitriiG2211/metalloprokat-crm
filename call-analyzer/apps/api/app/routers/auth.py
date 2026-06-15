@@ -22,15 +22,17 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     token = create_access_token(user.id, {"role": user.role, "organization_id": user.organization_id})
     csrf = new_csrf_token()
-    response.set_cookie("access_token", token, httponly=True, samesite="lax", secure=False)
-    response.set_cookie("csrf_token", csrf, httponly=False, samesite="lax", secure=False)
+    response.set_cookie("access_token", token, httponly=True, samesite="lax", secure=False, path="/")
+    response.set_cookie("csrf_token", csrf, httponly=False, samesite="lax", secure=False, path="/")
     return AuthOut(user=user_out(user), access_token=token, csrf_token=csrf)
 
 
 @router.post("/logout")
 def logout(response: Response) -> dict[str, str]:
-    response.delete_cookie("access_token")
-    response.delete_cookie("csrf_token")
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("csrf_token", path="/")
+    response.delete_cookie("access_token", path="/calls-analyzer-api/auth")
+    response.delete_cookie("csrf_token", path="/calls-analyzer-api/auth")
     return {"status": "ok"}
 
 

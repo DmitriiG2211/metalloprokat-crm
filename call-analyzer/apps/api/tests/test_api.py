@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.database import SessionLocal
+from app.deps import csrf_tokens_from_cookie_header
 from app.main import app
 from app.models import AnalysisResult, Call, CallFile, CriterionScore, ManagerProfile, UploadBatch
 
@@ -16,6 +17,11 @@ def auth_headers(client: TestClient) -> dict[str, str]:
     assert response.status_code == 200
     data = response.json()
     return {"Authorization": f"Bearer {data['access_token']}", "X-CSRF-Token": data["csrf_token"]}
+
+
+def test_duplicate_csrf_cookie_values_are_parsed() -> None:
+    tokens = csrf_tokens_from_cookie_header("theme=light; csrf_token=old; session=x; csrf_token=new")
+    assert tokens == {"old", "new"}
 
 
 def test_upload_process_and_export_call() -> None:
