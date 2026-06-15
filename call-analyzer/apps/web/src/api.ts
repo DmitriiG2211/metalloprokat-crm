@@ -144,6 +144,43 @@ export type ManagerComparisonReport = {
   recommendations: string[];
 };
 
+export type SalesInsights = {
+  calls_analyzed: number;
+  script_scorecard: Array<{
+    name: string;
+    average_score: number;
+    checks: number;
+    weak_count: number;
+    weak_share: number;
+    common_comments: string[];
+  }>;
+  problem_calls: Array<{
+    call_id: string;
+    filename: string;
+    manager_name: string;
+    client_company?: string | null;
+    outcome?: string | null;
+    score: number;
+    reason: string;
+  }>;
+  best_phrases: Array<{
+    call_id: string;
+    manager_name: string;
+    score?: number | null;
+    phrase: string;
+    why: string;
+  }>;
+  manager_weaknesses: Array<{
+    manager_id?: string | null;
+    manager_name: string;
+    calls: number;
+    average_score: number;
+    weaknesses: string[];
+    recommendations: string[];
+    low_criteria: string[];
+  }>;
+};
+
 let token = localStorage.getItem("access_token") ?? "";
 let csrf = localStorage.getItem("csrf_token") ?? "";
 

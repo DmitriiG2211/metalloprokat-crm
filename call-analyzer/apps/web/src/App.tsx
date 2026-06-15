@@ -1,5 +1,7 @@
 import {
+  AlertTriangle,
   BarChart3,
+  Brain,
   Download,
   FileAudio,
   Filter,
@@ -7,9 +9,11 @@ import {
   ListChecks,
   LogOut,
   PlayCircle,
+  Quote,
   RefreshCw,
   Settings,
   ShieldCheck,
+  Target,
   Trash2,
   UploadCloud,
   UserPlus,
@@ -24,9 +28,9 @@ import {
   exportUrl,
   setAuth,
 } from "./api";
-import type { Batch, Call, CallDetail, Criterion, Dashboard, Job, Manager, ManagerComparisonReport, SettingsInfo, User } from "./api";
+import type { Batch, Call, CallDetail, Criterion, Dashboard, Job, Manager, ManagerComparisonReport, SalesInsights, SettingsInfo, User } from "./api";
 
-type View = "dashboard" | "calls" | "uploads" | "managers" | "reports" | "criteria" | "jobs" | "settings";
+type View = "dashboard" | "calls" | "uploads" | "managers" | "reports" | "insights" | "criteria" | "jobs" | "settings";
 
 const nav: Array<{ id: View; label: string; icon: typeof Gauge }> = [
   { id: "dashboard", label: "Дашборд", icon: Gauge },
@@ -34,6 +38,7 @@ const nav: Array<{ id: View; label: string; icon: typeof Gauge }> = [
   { id: "uploads", label: "Загрузки", icon: UploadCloud },
   { id: "managers", label: "Менеджеры", icon: Users },
   { id: "reports", label: "Отчеты", icon: BarChart3 },
+  { id: "insights", label: "Инсайты", icon: Brain },
   { id: "criteria", label: "Критерии", icon: ListChecks },
   { id: "jobs", label: "Задачи", icon: RefreshCw },
   { id: "settings", label: "Настройки", icon: Settings },
@@ -166,6 +171,7 @@ function ViewRouter({ view, onError }: { view: View; onError: (message: string) 
   if (view === "uploads") return <UploadsView onError={onError} />;
   if (view === "managers") return <ManagersView onError={onError} />;
   if (view === "reports") return <ReportsView onError={onError} />;
+  if (view === "insights") return <SalesInsightsView onError={onError} />;
   if (view === "criteria") return <CriteriaView onError={onError} />;
   if (view === "jobs") return <JobsView onError={onError} />;
   return <SettingsView onError={onError} />;
@@ -581,6 +587,114 @@ function ReportsView({ onError }: { onError: (message: string) => void }) {
         </Panel>
       </section>
       {comparison && <ManagerComparison comparison={comparison} />}
+    </div>
+  );
+}
+
+function SalesInsightsView({ onError }: { onError: (message: string) => void }) {
+  const [insights, setInsights] = useState<SalesInsights | null>(null);
+
+  async function load() {
+    setInsights(await api<SalesInsights>("/reports/sales-insights"));
+  }
+
+  useEffect(() => {
+    load().catch((err) => onError(err.message));
+  }, []);
+
+  if (!insights) return <Loading />;
+
+  return (
+    <div className="stack">
+      <section className="metrics">
+        <Metric title="Проанализировано звонков" value={insights.calls_analyzed} />
+        <Metric title="Проблемных звонков" value={insights.problem_calls.length} />
+        <Metric title="Сильных фраз" value={insights.best_phrases.length} />
+        <Metric title="Критериев скрипта" value={insights.script_scorecard.length} />
+      </section>
+
+      <section className="grid two">
+        <Panel title="Оценка по скрипту" action={<Target size={18} />}>
+          <table>
+            <thead>
+              <tr>
+                <th>Критерий</th>
+                <th>Средний балл</th>
+                <th>Провалов</th>
+                <th>Доля</th>
+              </tr>
+            </thead>
+            <tbody>
+              {insights.script_scorecard.map((item) => (
+                <tr key={item.name}>
+                  <td>
+                    <strong>{item.name}</strong>
+                    {item.common_comments.length > 0 && <small>{item.common_comments[0]}</small>}
+                  </td>
+                  <td>{item.average_score}</td>
+                  <td>{item.weak_count} / {item.checks}</td>
+                  <td>{item.weak_share}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+
+        <Panel title="Слабые места менеджеров" action={<Brain size={18} />}>
+          <div className="stack">
+            {insights.manager_weaknesses.map((manager) => (
+              <div className="insight" key={manager.manager_id ?? manager.manager_name}>
+                <div className="insight-head">
+                  <strong>{manager.manager_name}</strong>
+                  <span>{manager.calls} звонков · {manager.average_score} балла</span>
+                </div>
+                <TagList title="Проседают критерии" items={manager.low_criteria} tone="warn" />
+                <TagList title="Слабые места" items={manager.weaknesses} tone="warn" />
+                <TagList title="Что подтянуть" items={manager.recommendations} tone="info" />
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </section>
+
+      <section className="grid two deferred-section">
+        <Panel title="Проблемные звонки" action={<AlertTriangle size={18} />}>
+          <table>
+            <thead>
+              <tr>
+                <th>Звонок</th>
+                <th>Менеджер</th>
+                <th>Исход</th>
+                <th>Балл</th>
+              </tr>
+            </thead>
+            <tbody>
+              {insights.problem_calls.map((call) => (
+                <tr key={call.call_id}>
+                  <td>
+                    <a href="#" onClick={(event) => event.preventDefault()}>{call.filename || call.client_company || "Звонок"}</a>
+                    {call.reason && <small>{call.reason}</small>}
+                  </td>
+                  <td>{call.manager_name}</td>
+                  <td>{labelOutcome(call.outcome ?? "unknown")}</td>
+                  <td>{call.score}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+
+        <Panel title="Банк лучших фраз" action={<Quote size={18} />}>
+          <div className="phrase-list">
+            {insights.best_phrases.map((item) => (
+              <blockquote key={`${item.call_id}-${item.phrase}`}>
+                <p>{item.phrase}</p>
+                <footer>{item.manager_name} · {item.score ?? "..."} баллов · {item.why}</footer>
+              </blockquote>
+            ))}
+          </div>
+        </Panel>
+      </section>
     </div>
   );
 }

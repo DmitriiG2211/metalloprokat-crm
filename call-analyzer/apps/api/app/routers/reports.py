@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import csrf_guard
-from app.models import AggregateReport, AnalysisResult, Call, ManagerProfile, TranscriptSegment, User
+from app.models import AggregateReport, AnalysisResult, Call, CriterionScore, ManagerProfile, TranscriptSegment, User
 from app.schemas import ReportOut
 from app.services.providers import get_llm_provider
 
@@ -64,6 +64,37 @@ async def manager_comparison(
     db.add(report)
     db.commit()
     return report.data
+
+
+@router.get("/sales-insights")
+def sales_insights(
+    limit: int = 250,
+    user: User = Depends(csrf_guard),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    limit = max(25, min(limit, 1000))
+    calls = db.scalars(
+        select(Call)
+        .where(Call.organization_id == user.organization_id, Call.status == "completed")
+        .order_by(Call.created_at.desc())
+        .limit(limit)
+    ).all()
+    managers = {m.id: m.name for m in db.query(ManagerProfile).filter(ManagerProfile.organization_id == user.organization_id).all()}
+    call_ids = [call.id for call in calls]
+    criteria_rows = []
+    if call_ids:
+        criteria_rows = db.execute(
+            select(CriterionScore, AnalysisResult.call_id)
+            .join(AnalysisResult, CriterionScore.analysis_result_id == AnalysisResult.id)
+            .where(AnalysisResult.organization_id == user.organization_id, AnalysisResult.call_id.in_(call_ids))
+        ).all()
+    return {
+        "script_scorecard": build_script_scorecard(criteria_rows),
+        "problem_calls": build_problem_calls(calls, managers),
+        "best_phrases": build_best_phrases(db, calls, managers),
+        "manager_weaknesses": build_manager_weaknesses(calls, managers, criteria_rows),
+        "calls_analyzed": len(calls),
+    }
 
 
 def build_manager_profiles(db: Session, organization_id: str, calls_per_manager: int) -> list[dict[str, Any]]:
@@ -132,6 +163,160 @@ def build_manager_profiles(db: Session, organization_id: str, calls_per_manager:
             }
         )
     return profiles
+
+
+def build_script_scorecard(criteria_rows: list[tuple[CriterionScore, str]]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[CriterionScore]] = {}
+    for row, _call_id in criteria_rows:
+        grouped.setdefault(row.name, []).append(row)
+    scorecard = []
+    for name, rows in grouped.items():
+        scores = [float(row.score or 0) for row in rows]
+        weak_count = sum(1 for score in scores if score < 6)
+        scorecard.append(
+            {
+                "name": name,
+                "average_score": round(sum(scores) / max(1, len(scores)), 1),
+                "checks": len(scores),
+                "weak_count": weak_count,
+                "weak_share": round(weak_count * 100 / max(1, len(scores)), 1),
+                "common_comments": most_common_text([row.comment for row in rows if row.comment], 3),
+            }
+        )
+    return sorted(scorecard, key=lambda item: (item["average_score"], -item["checks"]))
+
+
+def build_problem_calls(calls: list[Call], managers: dict[str, str]) -> list[dict[str, Any]]:
+    rows = []
+    problem_outcomes = {"refusal", "no_answer", "auto_answer", "wrong_number", "needs_review"}
+    for call in calls:
+        score = float(call.overall_score or 0)
+        if score > 55 and call.outcome not in problem_outcomes:
+            continue
+        weaknesses = call.analysis.weaknesses if call.analysis else []
+        rows.append(
+            {
+                "call_id": call.id,
+                "filename": call.file.original_filename if call.file else "",
+                "manager_name": managers.get(call.manager_id or "", "Не назначен"),
+                "client_company": call.client_company,
+                "outcome": call.outcome,
+                "score": score,
+                "reason": "; ".join(weaknesses[:2]) or call.analysis.summary if call.analysis else "",
+            }
+        )
+    return sorted(rows, key=lambda item: (item["score"], item["outcome"] or ""))[:25]
+
+
+def build_best_phrases(db: Session, calls: list[Call], managers: dict[str, str]) -> list[dict[str, Any]]:
+    phrases: list[dict[str, Any]] = []
+    positive_markers = [
+        "прайс",
+        "кп",
+        "коммерчес",
+        "потребност",
+        "закуп",
+        "отправ",
+        "следующ",
+        "перезвон",
+        "подскаж",
+    ]
+    for call in calls:
+        if float(call.overall_score or 0) < 70 or not call.transcript:
+            continue
+        segments = db.scalars(
+            select(TranscriptSegment)
+            .where(TranscriptSegment.transcript_id == call.transcript.id)
+            .order_by(TranscriptSegment.start_ms)
+            .limit(80)
+        ).all()
+        for segment in segments:
+            text = segment.text.strip()
+            lowered = text.casefold()
+            if len(text) < 24 or not any(marker in lowered for marker in positive_markers):
+                continue
+            phrases.append(
+                {
+                    "call_id": call.id,
+                    "manager_name": managers.get(call.manager_id or "", "Не назначен"),
+                    "score": call.overall_score,
+                    "phrase": text[:320],
+                    "why": "Сильная фраза из звонка с высоким баллом",
+                }
+            )
+            break
+    if len(phrases) < 10:
+        phrases.extend(best_evidence_phrases(calls, managers, 10 - len(phrases)))
+    return phrases[:20]
+
+
+def best_evidence_phrases(calls: list[Call], managers: dict[str, str], limit: int) -> list[dict[str, Any]]:
+    rows = []
+    for call in calls:
+        if float(call.overall_score or 0) < 70 or not call.analysis:
+            continue
+        for item in call.analysis.evidence or []:
+            quote = str(item.get("quote") or "").strip() if isinstance(item, dict) else ""
+            if len(quote) < 18:
+                continue
+            rows.append(
+                {
+                    "call_id": call.id,
+                    "manager_name": managers.get(call.manager_id or "", "Не назначен"),
+                    "score": call.overall_score,
+                    "phrase": quote[:320],
+                    "why": "AI отметил эту цитату как подтверждение сильного звонка",
+                }
+            )
+            break
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def build_manager_weaknesses(
+    calls: list[Call],
+    managers: dict[str, str],
+    criteria_rows: list[tuple[CriterionScore, str]],
+) -> list[dict[str, Any]]:
+    by_call = {call.id: call for call in calls}
+    profile: dict[str, dict[str, Any]] = {}
+    for call in calls:
+        key = call.manager_id or "none"
+        item = profile.setdefault(
+            key,
+            {
+                "manager_id": call.manager_id,
+                "manager_name": managers.get(call.manager_id or "", "Не назначен"),
+                "calls": 0,
+                "average_score": 0,
+                "scores": [],
+                "weaknesses": [],
+                "recommendations": [],
+                "criteria": [],
+            },
+        )
+        item["calls"] += 1
+        item["scores"].append(float(call.overall_score or 0))
+        if call.analysis:
+            item["weaknesses"].extend(call.analysis.weaknesses or [])
+            item["recommendations"].extend(call.analysis.recommendations or [])
+    for criterion, call_id in criteria_rows:
+        call = by_call.get(call_id)
+        if not call or float(criterion.score or 0) >= 6:
+            continue
+        key = call.manager_id or "none"
+        if key in profile:
+            profile[key]["criteria"].append(criterion.name)
+    result = []
+    for item in profile.values():
+        scores = item.pop("scores")
+        item["average_score"] = round(sum(scores) / max(1, len(scores)), 1)
+        item["weaknesses"] = most_common_text(item["weaknesses"], 5)
+        item["recommendations"] = most_common_text(item["recommendations"], 5)
+        item["low_criteria"] = most_common_text(item.pop("criteria"), 5)
+        result.append(item)
+    return sorted(result, key=lambda item: item["average_score"])
 
 
 SERVICE_KEYWORDS = {

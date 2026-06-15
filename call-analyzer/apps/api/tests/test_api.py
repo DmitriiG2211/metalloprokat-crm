@@ -164,6 +164,14 @@ def test_manager_comparison_report_and_delete_manager() -> None:
         assert "service_gaps" in payload
         assert "weaknesses_by_manager" in payload
 
+        insights = client.get("/reports/sales-insights", headers=headers)
+        assert insights.status_code == 200, insights.text
+        insights_payload = insights.json()
+        assert "script_scorecard" in insights_payload
+        assert "problem_calls" in insights_payload
+        assert "best_phrases" in insights_payload
+        assert "manager_weaknesses" in insights_payload
+
         delete_response = client.delete(f"/managers/{manager_id}", headers=headers)
         assert delete_response.status_code == 200, delete_response.text
         assert delete_response.json()["status"] == "deleted"

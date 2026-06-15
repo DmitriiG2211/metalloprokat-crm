@@ -303,6 +303,14 @@ td {
   vertical-align: top;
 }
 
+td small {
+  color: #667085;
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
 th {
   color: #667085;
   font-size: 11.5px;
@@ -506,10 +514,48 @@ progress {
   padding: 12px;
 }
 
+.insight-head {
+  align-items: start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
 .insight span,
 .insight p {
   color: #526173;
   margin: 0;
+}
+
+.phrase-list {
+  display: grid;
+  gap: 12px;
+}
+
+blockquote {
+  background: #f8fbff;
+  border: 1px solid #e4ebf5;
+  border-left: 4px solid #1267e8;
+  border-radius: 8px;
+  margin: 0;
+  padding: 13px 14px;
+}
+
+blockquote p {
+  color: #172033;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+blockquote footer {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.deferred-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 420px;
 }
 
 .empty,
