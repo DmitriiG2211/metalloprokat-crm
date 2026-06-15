@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import subprocess
+import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
@@ -93,35 +96,87 @@ class FasterWhisperProvider(TranscriptionProvider):
     def transcribe(self, path: Path, filename: str) -> TranscriptData:
         settings = get_settings()
         model = get_whisper_model(settings.whisper_model, settings.whisper_device, settings.whisper_compute_type)
-        segments_iter, info = model.transcribe(str(path), language="ru", vad_filter=True)
-        segments = []
-        text_parts = []
-        for index, segment in enumerate(segments_iter):
-            role = None
-            speaker = f"Speaker {index % 2 + 1}"
-            text_parts.append(segment.text.strip())
-            segments.append(
-                {
-                    "speaker": speaker,
-                    "role": role,
-                    "start_ms": int(segment.start * 1000),
-                    "end_ms": int(segment.end * 1000),
-                    "text": segment.text.strip(),
-                    "confidence": None,
-                }
+        transcription_path = path
+        normalized_path: Path | None = None
+        normalization_error: str | None = None
+        if settings.normalize_audio_before_transcription:
+            try:
+                normalized_path = normalize_audio_for_transcription(path)
+                transcription_path = normalized_path
+            except RuntimeError as exc:
+                normalization_error = str(exc)
+
+        try:
+            segments_iter, info = model.transcribe(
+                str(transcription_path),
+                language="ru",
+                vad_filter=True,
+                beam_size=5,
+                best_of=5,
+                temperature=0,
+                condition_on_previous_text=False,
             )
-        return TranscriptData(
-            text="\n".join(text_parts),
-            segments=segments,
-            provider="local_faster_whisper",
-            language=getattr(info, "language", "ru"),
-            confidence=getattr(info, "language_probability", None),
-            technical_info={
-                "model": settings.whisper_model,
-                "device": settings.whisper_device,
-                "compute_type": settings.whisper_compute_type,
-            },
-        )
+            segments = []
+            text_parts = []
+            for index, segment in enumerate(segments_iter):
+                role = None
+                speaker = f"Speaker {index % 2 + 1}"
+                text_parts.append(segment.text.strip())
+                segments.append(
+                    {
+                        "speaker": speaker,
+                        "role": role,
+                        "start_ms": int(segment.start * 1000),
+                        "end_ms": int(segment.end * 1000),
+                        "text": segment.text.strip(),
+                        "confidence": None,
+                    }
+                )
+            return TranscriptData(
+                text="\n".join(text_parts),
+                segments=segments,
+                provider="local_faster_whisper",
+                language=getattr(info, "language", "ru"),
+                confidence=getattr(info, "language_probability", None),
+                technical_info={
+                    "model": settings.whisper_model,
+                    "device": settings.whisper_device,
+                    "compute_type": settings.whisper_compute_type,
+                    "audio_normalized": normalized_path is not None,
+                    "normalization_error": normalization_error,
+                },
+            )
+        finally:
+            if normalized_path:
+                normalized_path.unlink(missing_ok=True)
+
+
+def normalize_audio_for_transcription(path: Path) -> Path:
+    fd, target_name = tempfile.mkstemp(prefix="normalized-call-", suffix=".wav")
+    os.close(fd)
+    target = Path(target_name)
+    command = [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(path),
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-af",
+        "loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=80,lowpass=f=7800",
+        str(target),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=180, check=False)
+    if result.returncode != 0 or not target.exists() or target.stat().st_size == 0:
+        target.unlink(missing_ok=True)
+        message = (result.stderr or result.stdout or "unknown ffmpeg error").strip()
+        raise RuntimeError(f"Audio normalization failed: {message[:500]}")
+    return target
 
 
 @lru_cache(maxsize=4)

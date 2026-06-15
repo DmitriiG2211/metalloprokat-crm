@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     whisper_model: str = "medium"
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
+    normalize_audio_before_transcription: bool = True
     enable_diarization: bool = False
 
     max_upload_mb: int = 500
