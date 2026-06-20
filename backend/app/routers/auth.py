@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth import create_access_token, verify_password
 from app.database import get_db
 from app.deps import get_current_user, request_meta
-from app.models import User
+from app.models import Role, User
 from app.schemas import QuickLoginRequest, Token, UserRead
 from app.services.audit import write_audit
 
@@ -23,6 +23,8 @@ def quick_login(payload: QuickLoginRequest, request: Request, db: Session = Depe
     user = db.scalars(select(User).where(User.login == payload.login, User.is_active.is_(True))).first()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
+    if user.role in {Role.admin.value, Role.director.value, Role.senior_manager.value} and payload.leader_password != "12345678":
+        raise HTTPException(status_code=403, detail="Неверный пароль руководителя")
     ip, agent = request_meta(request)
     write_audit(db, user, "quick_login", "user", user.id, ip_address=ip, user_agent=agent)
     db.commit()

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.deps import can_view_all, get_current_user, request_meta
 from app.models import Role, Task, TaskStatus, User
-from app.schemas import TaskCreate, TaskRead, TaskUpdate
+from app.schemas import BulkDeleteRequest, TaskCompleteRequest, TaskCreate, TaskRead, TaskUpdate
 from app.services.audit import write_audit
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -34,6 +34,22 @@ def create_task(payload: TaskCreate, request: Request, db: Session = Depends(get
     write_audit(db, user, "create_task", "task", task.id, new_value=payload.model_dump(mode="json"), ip_address=ip, user_agent=agent)
     db.commit()
     return task
+
+
+@router.post("/bulk-delete")
+def bulk_delete_tasks(payload: BulkDeleteRequest, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not can_view_all(user):
+        raise HTTPException(403, "Удаление задач доступно только руководителю")
+    if not payload.delete_all and not payload.ids:
+        raise HTTPException(422, "Выберите задачи для удаления")
+    query = db.query(Task)
+    if not payload.delete_all:
+        query = query.filter(Task.id.in_(payload.ids))
+    deleted = query.delete(synchronize_session=False)
+    ip, agent = request_meta(request)
+    write_audit(db, user, "bulk_delete_tasks", "task", None, new_value={"count": deleted, "delete_all": payload.delete_all}, ip_address=ip, user_agent=agent)
+    db.commit()
+    return {"ok": True, "deleted": deleted}
 
 
 @router.get("/{task_id}", response_model=TaskRead)
@@ -64,14 +80,29 @@ def update_task(task_id: int, payload: TaskUpdate, request: Request, db: Session
 
 
 @router.post("/{task_id}/complete", response_model=TaskRead)
-def complete_task(task_id: int, request: Request, manager_comment: str | None = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def complete_task(task_id: int, request: Request, payload: TaskCompleteRequest | None = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     task = db.get(Task, task_id)
     if not task or (not can_view_all(user) and task.manager_id != user.id):
         raise HTTPException(404, "Задача не найдена")
     task.status = TaskStatus.done.value
-    task.manager_comment = manager_comment or task.manager_comment
+    if payload and payload.manager_comment is not None:
+        task.manager_comment = payload.manager_comment.strip() or None
     task.completed_at = datetime.now(timezone.utc)
     ip, agent = request_meta(request)
     write_audit(db, user, "complete_task", "task", task.id, ip_address=ip, user_agent=agent)
     db.commit()
     return task
+
+
+@router.delete("/{task_id}")
+def delete_task(task_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not can_view_all(user):
+        raise HTTPException(403, "Удаление задач доступно только руководителю")
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Задача не найдена")
+    db.delete(task)
+    ip, agent = request_meta(request)
+    write_audit(db, user, "delete_task", "task", task_id, ip_address=ip, user_agent=agent)
+    db.commit()
+    return {"ok": True}

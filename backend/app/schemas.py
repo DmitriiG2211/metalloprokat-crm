@@ -13,6 +13,16 @@ class Token(BaseModel):
 
 class QuickLoginRequest(BaseModel):
     login: str
+    leader_password: str | None = None
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[int] = Field(default_factory=list)
+    delete_all: bool = False
+
+
+class TaskCompleteRequest(BaseModel):
+    manager_comment: str | None = None
 
 
 class UserBase(BaseModel):

@@ -1,5 +1,5 @@
-import { AddAlert } from "@mui/icons-material";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from "@mui/material";
+import { AddAlert, Delete } from "@mui/icons-material";
+import { Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link as RouterLink, useOutletContext } from "react-router-dom";
@@ -33,8 +33,10 @@ export function RemindersPage() {
   const [tab, setTab] = useState(0);
   const [open, setOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [selectedReminderIds, setSelectedReminderIds] = useState<number[]>([]);
   const [form, setForm] = useState({ client_id: "", manager_id: "", next_call_date: todayIso() });
   const canAssign = ["admin", "director"].includes(user.role);
+  const canDelete = ["admin", "director", "senior_manager"].includes(user.role);
   const { data = [] } = useQuery({ queryKey: ["reminders", tab], queryFn: async () => (await api.get<Client[]>(endpoints[tab])).data });
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
@@ -68,6 +70,37 @@ export function RemindersPage() {
       queryClient.invalidateQueries({ queryKey: ["today-notification-reminders"] });
     }
   });
+  const deleteReminders = useMutation({
+    mutationFn: async (payload: { ids?: number[]; delete_all?: boolean }) => (await api.post("/reminders/bulk-delete", payload)).data,
+    onSuccess: () => {
+      setSelectedReminderIds([]);
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      queryClient.invalidateQueries({ queryKey: ["today-notification-reminders"] });
+    }
+  });
+  const allVisibleSelected = data.length > 0 && data.every((client) => selectedReminderIds.includes(client.id));
+  const selectedVisibleCount = data.filter((client) => selectedReminderIds.includes(client.id)).length;
+  const toggleReminder = (id: number) => {
+    setSelectedReminderIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+  const toggleVisibleReminders = () => {
+    setSelectedReminderIds((current) => {
+      const visible = new Set(data.map((client) => client.id));
+      if (allVisibleSelected) return current.filter((id) => !visible.has(id));
+      return Array.from(new Set([...current, ...data.map((client) => client.id)]));
+    });
+  };
+  const deleteSelectedReminders = () => {
+    if (selectedReminderIds.length === 0) return;
+    if (window.confirm(`Удалить выбранные напоминания: ${selectedReminderIds.length}?`)) {
+      deleteReminders.mutate({ ids: selectedReminderIds });
+    }
+  };
+  const deleteAllReminders = () => {
+    if (window.confirm("Удалить все напоминания? Клиенты останутся в базе.")) {
+      deleteReminders.mutate({ delete_all: true });
+    }
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     createReminder.mutate();
@@ -78,11 +111,23 @@ export function RemindersPage() {
       <PageHeader
         title="Напоминания"
         actions={
-          canAssign ? (
-            <Button variant="contained" startIcon={<AddAlert />} onClick={() => setOpen(true)}>
-              Создать напоминание
-            </Button>
-          ) : undefined
+          <>
+            {canDelete && (
+              <>
+                <Button color="error" startIcon={<Delete />} onClick={deleteSelectedReminders} disabled={selectedReminderIds.length === 0 || deleteReminders.isPending}>
+                  Удалить выбранные
+                </Button>
+                <Button color="error" variant="outlined" startIcon={<Delete />} onClick={deleteAllReminders} disabled={deleteReminders.isPending}>
+                  Удалить все
+                </Button>
+              </>
+            )}
+            {canAssign && (
+              <Button variant="contained" startIcon={<AddAlert />} onClick={() => setOpen(true)}>
+                Создать напоминание
+              </Button>
+            )}
+          </>
         }
       />
       <Paper className="glass-surface" sx={{ mb: 2, borderRadius: "8px" }} elevation={0}>
@@ -96,6 +141,11 @@ export function RemindersPage() {
         <Table size="small" className="premium-table reminders-table">
           <TableHead>
             <TableRow>
+              {canDelete && (
+                <TableCell padding="checkbox">
+                  <Checkbox checked={allVisibleSelected} indeterminate={selectedVisibleCount > 0 && !allVisibleSelected} onChange={toggleVisibleReminders} />
+                </TableCell>
+              )}
               <TableCell>Компания</TableCell>
               <TableCell>Телефон</TableCell>
               <TableCell>Дата перезвона</TableCell>
@@ -106,6 +156,11 @@ export function RemindersPage() {
           <TableBody>
             {data.map((client) => (
               <TableRow key={client.id}>
+                {canDelete && (
+                  <TableCell padding="checkbox">
+                    <Checkbox checked={selectedReminderIds.includes(client.id)} onChange={() => toggleReminder(client.id)} />
+                  </TableCell>
+                )}
                 <TableCell sx={{ maxWidth: 320 }}>
                   <Button component={RouterLink} to={`/clients?client_id=${client.id}`} size="small" sx={{ justifyContent: "flex-start", px: 0, textAlign: "left" }}>
                     {client.company_name}
@@ -121,7 +176,7 @@ export function RemindersPage() {
             ))}
             {data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>На выбранный период звонков нет</TableCell>
+                <TableCell colSpan={canDelete ? 6 : 5}>На выбранный период звонков нет</TableCell>
               </TableRow>
             )}
           </TableBody>

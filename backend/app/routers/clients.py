@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import can_view_all, ensure_client_access, get_current_user, request_meta
-from app.models import AuditLog, Client, ClientComment, Role, Status, Task, Transfer, User
-from app.schemas import ClientCreate, ClientRead, ClientUpdate, CommentCreate, CommentRead, Page, TaskRead, TransferCreate
+from app.models import AuditLog, Client, ClientComment, ImportClientChange, Role, Status, Task, Transfer, User
+from app.schemas import BulkDeleteRequest, ClientCreate, ClientRead, ClientUpdate, CommentCreate, CommentRead, Page, TaskRead, TransferCreate
 from app.services.audit import write_audit
 from app.services.importer import find_duplicate
 from app.utils.normalization import normalize_company, normalize_email, normalize_phone, normalize_website
@@ -131,6 +131,32 @@ def create_client(payload: ClientCreate, request: Request, db: Session = Depends
     db.commit()
     db.refresh(client)
     return serialize_client(client)
+
+
+@router.post("/bulk-delete")
+def bulk_delete_clients(payload: BulkDeleteRequest, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not can_view_all(user):
+        raise HTTPException(403, "Удаление клиентов доступно только руководителю")
+    if not payload.delete_all and not payload.ids:
+        raise HTTPException(422, "Выберите клиентов для удаления")
+
+    if payload.delete_all:
+        ids = [row[0] for row in db.execute(client_query(user).with_only_columns(Client.id)).all()]
+    else:
+        ids = [row[0] for row in db.execute(client_query(user).where(Client.id.in_(payload.ids)).with_only_columns(Client.id)).all()]
+    if not ids:
+        return {"ok": True, "deleted": 0}
+
+    db.query(ClientComment).filter(ClientComment.client_id.in_(ids)).delete(synchronize_session=False)
+    db.query(Task).filter(Task.client_id.in_(ids)).delete(synchronize_session=False)
+    db.query(Transfer).filter(Transfer.client_id.in_(ids)).delete(synchronize_session=False)
+    db.query(ImportClientChange).filter(ImportClientChange.client_id.in_(ids)).delete(synchronize_session=False)
+    db.query(AuditLog).filter(AuditLog.entity_type == "client", AuditLog.entity_id.in_(ids)).delete(synchronize_session=False)
+    deleted = db.query(Client).filter(Client.id.in_(ids)).delete(synchronize_session=False)
+    ip, agent = request_meta(request)
+    write_audit(db, user, "bulk_delete_clients", "client", None, new_value={"count": deleted, "delete_all": payload.delete_all}, ip_address=ip, user_agent=agent)
+    db.commit()
+    return {"ok": True, "deleted": deleted}
 
 
 @router.get("/{client_id}", response_model=ClientRead)

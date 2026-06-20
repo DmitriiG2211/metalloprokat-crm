@@ -1,7 +1,8 @@
-import { Add, Download, ExpandMore, History, Phone, Search } from "@mui/icons-material";
+import { Add, Delete, Download, ExpandMore, History, Phone, Search } from "@mui/icons-material";
 import {
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -435,6 +436,7 @@ export function ClientsPage() {
   const [nextCallTo, setNextCallTo] = useState("");
   const [open, setOpen] = useState(false);
   const [historyClient, setHistoryClient] = useState<Client | null>(null);
+  const [selectedClientIds, setSelectedClientIds] = useState<number[]>([]);
   const [form, setForm] = useState({ company_name: "", contact_person: "", phone: "", email: "", website: "", status_id: "", next_call_date: "" });
   const didInitFilters = useRef(false);
 
@@ -478,6 +480,9 @@ export function ClientsPage() {
   });
 
   const managers = useMemo(() => users.filter((user) => user.role === "manager"), [users]);
+  const visibleClientIds = useMemo(() => data?.items.map((client) => client.id) || [], [data]);
+  const selectedVisibleCount = visibleClientIds.filter((id) => selectedClientIds.includes(id)).length;
+  const allVisibleSelected = visibleClientIds.length > 0 && selectedVisibleCount === visibleClientIds.length;
 
   const updateClient = useMutation({
     mutationFn: async ({ id, patch }: { id: number; patch: ClientPatch }) => (await api.patch(`/clients/${id}`, patch)).data,
@@ -508,12 +513,45 @@ export function ClientsPage() {
     }
   });
 
+  const deleteClients = useMutation({
+    mutationFn: async (payload: { ids?: number[]; delete_all?: boolean }) => (await api.post("/clients/bulk-delete", payload)).data,
+    onSuccess: () => {
+      setSelectedClientIds([]);
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    }
+  });
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     create.mutate();
   };
 
   const saveField = (client: Client, patch: ClientPatch) => updateClient.mutate({ id: client.id, patch });
+
+  const toggleClient = (id: number) => {
+    setSelectedClientIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+
+  const toggleVisibleClients = () => {
+    setSelectedClientIds((current) => {
+      const visible = new Set(visibleClientIds);
+      if (allVisibleSelected) return current.filter((id) => !visible.has(id));
+      return Array.from(new Set([...current, ...visibleClientIds]));
+    });
+  };
+
+  const deleteSelectedClients = () => {
+    if (selectedClientIds.length === 0) return;
+    if (window.confirm(`Удалить выбранных клиентов: ${selectedClientIds.length}?`)) {
+      deleteClients.mutate({ ids: selectedClientIds });
+    }
+  };
+
+  const deleteAllClients = () => {
+    if (window.confirm("Полностью удалить всех клиентов? Это действие нельзя отменить.")) {
+      deleteClients.mutate({ delete_all: true });
+    }
+  };
 
   const downloadExcel = async () => {
     const response = await api.get("/export/clients.xlsx", {
@@ -542,6 +580,16 @@ export function ClientsPage() {
             <Button startIcon={<Download />} onClick={downloadExcel}>
               Excel
             </Button>
+            {canSeeManagers && (
+              <>
+                <Button color="error" startIcon={<Delete />} onClick={deleteSelectedClients} disabled={selectedClientIds.length === 0 || deleteClients.isPending}>
+                  Удалить выбранные
+                </Button>
+                <Button color="error" variant="outlined" startIcon={<Delete />} onClick={deleteAllClients} disabled={deleteClients.isPending}>
+                  Удалить всех
+                </Button>
+              </>
+            )}
             <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)}>
               Добавить
             </Button>
@@ -585,6 +633,11 @@ export function ClientsPage() {
           <Table size="small" className="premium-table excel-table">
             <TableHead>
               <TableRow>
+                {canSeeManagers && (
+                  <TableCell padding="checkbox" sx={{ width: 42 }}>
+                    <Checkbox checked={allVisibleSelected} indeterminate={selectedVisibleCount > 0 && !allVisibleSelected} onChange={toggleVisibleClients} />
+                  </TableCell>
+                )}
                 <TableCell sx={{ width: "15%" }}>Компания</TableCell>
                 <TableCell sx={{ width: "9%" }}>ФИО</TableCell>
                 <TableCell sx={{ width: "13%" }}>Телефон</TableCell>
@@ -599,6 +652,11 @@ export function ClientsPage() {
             <TableBody>
               {data?.items.map((client) => (
                 <TableRow key={client.id} hover>
+                  {canSeeManagers && (
+                    <TableCell padding="checkbox">
+                      <Checkbox checked={selectedClientIds.includes(client.id)} onChange={() => toggleClient(client.id)} />
+                    </TableCell>
+                  )}
                   <ExcelCell width="15%">
                     <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => setHistoryClient(client)} />
                   </ExcelCell>
@@ -646,7 +704,7 @@ export function ClientsPage() {
               ))}
               {!isFetching && data?.items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9}>Клиенты не найдены</TableCell>
+                  <TableCell colSpan={canSeeManagers ? 10 : 9}>Клиенты не найдены</TableCell>
                 </TableRow>
               )}
             </TableBody>

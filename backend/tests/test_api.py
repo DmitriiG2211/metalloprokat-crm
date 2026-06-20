@@ -43,6 +43,9 @@ def test_login_and_role_access():
     assert any(user["login"] == "manager103" for user in options.json())
     quick = client.post("/api/auth/quick-login", json={"login": "manager103"})
     assert quick.status_code == 200
+    assert client.post("/api/auth/quick-login", json={"login": "admin"}).status_code == 403
+    leader_quick = client.post("/api/auth/quick-login", json={"login": "admin", "leader_password": "12345678"})
+    assert leader_quick.status_code == 200
     quick_me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {quick.json()['access_token']}"})
     assert quick_me.status_code == 200
     assert quick_me.json()["login"] == "manager103"
@@ -87,9 +90,10 @@ def test_search_and_task_flow():
         headers={"Authorization": f"Bearer {manager_token}"},
     )
     assert comment.status_code == 200, comment.text
-    done = client.post(f"/api/tasks/{task.json()['id']}/complete", headers={"Authorization": f"Bearer {manager_token}"})
+    done = client.post(f"/api/tasks/{task.json()['id']}/complete", json={"manager_comment": "Done with note"}, headers={"Authorization": f"Bearer {manager_token}"})
     assert done.status_code == 200
     assert done.json()["status"] == "done"
+    assert done.json()["manager_comment"] == "Done with note"
     history = client.get(f"/api/clients/{created['id']}/history", headers={"Authorization": f"Bearer {admin}"})
     assert history.status_code == 200, history.text
     event_types = {event["type"] for event in history.json()["events"]}
@@ -142,6 +146,42 @@ def test_daily_report_flow_and_summary():
         - report_payload["calls_new_no_answer_count"]
     )
     assert manager103["invoice_count"] == 4
+
+
+def test_leader_bulk_delete_endpoints():
+    admin = token("admin", "admin123")
+    users = client.get("/api/users", headers={"Authorization": f"Bearer {admin}"}).json()
+    manager103 = next(user for user in users if user["login"] == "manager103")
+
+    created = client.post(
+        "/api/clients",
+        json={"company_name": "Bulk Delete Client", "phone": "+7 900 100-20-30", "manager_id": manager103["id"], "next_call_date": "2026-06-20"},
+        headers={"Authorization": f"Bearer {admin}"},
+    )
+    assert created.status_code == 200, created.text
+    client_id = created.json()["id"]
+    delete_client = client.post("/api/clients/bulk-delete", json={"ids": [client_id]}, headers={"Authorization": f"Bearer {admin}"})
+    assert delete_client.status_code == 200, delete_client.text
+    assert delete_client.json()["deleted"] == 1
+
+    task = client.post(
+        "/api/tasks",
+        json={"manager_id": manager103["id"], "title": "Delete me"},
+        headers={"Authorization": f"Bearer {admin}"},
+    )
+    assert task.status_code == 200, task.text
+    delete_task = client.delete(f"/api/tasks/{task.json()['id']}", headers={"Authorization": f"Bearer {admin}"})
+    assert delete_task.status_code == 200, delete_task.text
+
+    report = client.put(
+        "/api/daily-reports/my",
+        json={"report_date": "2026-06-04", "calls_new_count": 1},
+        headers={"Authorization": f"Bearer {token('manager103', '103123')}"},
+    )
+    assert report.status_code == 200, report.text
+    delete_report = client.post("/api/daily-reports/bulk-delete", json={"ids": [report.json()["id"]]}, headers={"Authorization": f"Bearer {admin}"})
+    assert delete_report.status_code == 200, delete_report.text
+    assert delete_report.json()["deleted"] == 1
 
 
 def test_analytics_control_endpoints():

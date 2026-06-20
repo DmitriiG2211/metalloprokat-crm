@@ -247,8 +247,6 @@ def import_dataframe(
         )
         if duplicate:
             job.duplicate_count += 1
-            job.skipped_count += 1
-            continue
         row_status_name = row_statuses.get(row_number)
         row_status_id = status_ids.get(row_status_name.casefold()) if row_status_name else None
 

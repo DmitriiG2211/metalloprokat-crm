@@ -1,8 +1,9 @@
-import { Analytics, ReceiptLong, Save, Today } from "@mui/icons-material";
+import { Analytics, Delete, ReceiptLong, Save, Today } from "@mui/icons-material";
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Divider,
   Dialog,
@@ -473,10 +474,12 @@ function ReportDetailDialog({ report, onClose }: { report: DailyReport | null; o
 }
 
 function LeaderReports({ isLeader }: { isLeader: boolean }) {
+  const queryClient = useQueryClient();
   const [dateFrom, setDateFrom] = useState(monthStart());
   const [dateTo, setDateTo] = useState(today());
   const [managerId, setManagerId] = useState("");
   const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null);
+  const [selectedReportIds, setSelectedReportIds] = useState<number[]>([]);
   const params = { date_from: dateFrom || undefined, date_to: dateTo || undefined, manager_id: managerId || undefined };
 
   const { data: users = [] } = useQuery({
@@ -495,8 +498,20 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
     queryFn: async () => (await api.get<DailyReport[]>("/daily-reports", { params })).data
   });
 
+  const deleteReports = useMutation({
+    mutationFn: async (payload: { ids?: number[]; delete_all?: boolean }) => (await api.post("/daily-reports/bulk-delete", payload)).data,
+    onSuccess: () => {
+      setSelectedReportIds([]);
+      queryClient.invalidateQueries({ queryKey: ["daily-reports"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-reports-summary"] });
+    }
+  });
+
   const managers = useMemo(() => users.filter((item) => item.role === "manager"), [users]);
   const sortedSummary = useMemo(() => [...summary].sort((a, b) => b.total_calls - a.total_calls), [summary]);
+  const visibleReportIds = useMemo(() => reports.map((report) => report.id), [reports]);
+  const selectedVisibleReports = visibleReportIds.filter((id) => selectedReportIds.includes(id)).length;
+  const allVisibleReportsSelected = visibleReportIds.length > 0 && selectedVisibleReports === visibleReportIds.length;
   const totalCalls = summary.reduce((sum, row) => sum + row.total_calls, 0);
   const totalRegularCalls = summary.reduce((sum, row) => sum + row.calls_regular, 0);
   const totalInvoices = summary.reduce((sum, row) => sum + row.invoice_count, 0);
@@ -518,6 +533,31 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
     };
     setDateFrom(starts[period]);
     setDateTo(end);
+  };
+
+  const toggleReport = (id: number) => {
+    setSelectedReportIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+
+  const toggleVisibleReports = () => {
+    setSelectedReportIds((current) => {
+      const visible = new Set(visibleReportIds);
+      if (allVisibleReportsSelected) return current.filter((id) => !visible.has(id));
+      return Array.from(new Set([...current, ...visibleReportIds]));
+    });
+  };
+
+  const deleteSelectedReports = () => {
+    if (selectedReportIds.length === 0) return;
+    if (window.confirm(`Удалить выбранные отчеты: ${selectedReportIds.length}?`)) {
+      deleteReports.mutate({ ids: selectedReportIds });
+    }
+  };
+
+  const deleteAllReports = () => {
+    if (window.confirm("Удалить все отчеты? Это действие нельзя отменить.")) {
+      deleteReports.mutate({ delete_all: true });
+    }
   };
 
   return (
@@ -620,10 +660,25 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
           <ReceiptLong color="primary" />
           <Typography fontWeight={900}>Ежедневные отчеты</Typography>
+          {isLeader && (
+            <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+              <Button size="small" color="error" startIcon={<Delete />} onClick={deleteSelectedReports} disabled={selectedReportIds.length === 0 || deleteReports.isPending}>
+                Удалить выбранные
+              </Button>
+              <Button size="small" color="error" variant="outlined" startIcon={<Delete />} onClick={deleteAllReports} disabled={deleteReports.isPending}>
+                Удалить все
+              </Button>
+            </Stack>
+          )}
         </Stack>
         <Table size="small" className="premium-table">
           <TableHead>
             <TableRow>
+              {isLeader && (
+                <TableCell padding="checkbox">
+                  <Checkbox checked={allVisibleReportsSelected} indeterminate={selectedVisibleReports > 0 && !allVisibleReportsSelected} onChange={toggleVisibleReports} />
+                </TableCell>
+              )}
               <TableCell>Дата</TableCell>
               <TableCell>Менеджер</TableCell>
               <TableCell>Звонков</TableCell>
@@ -651,6 +706,11 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
                   }
                 }}
               >
+                {isLeader && (
+                  <TableCell padding="checkbox" onClick={(event) => event.stopPropagation()}>
+                    <Checkbox checked={selectedReportIds.includes(report.id)} onChange={() => toggleReport(report.id)} />
+                  </TableCell>
+                )}
                 <TableCell>{report.report_date}</TableCell>
                 <TableCell>{reportManagerName(report)}</TableCell>
                 <TableCell>{effectiveNewCalls(report)}</TableCell>
@@ -664,7 +724,7 @@ function LeaderReports({ isLeader }: { isLeader: boolean }) {
             ))}
             {reports.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9}>За выбранный период отчетов пока нет</TableCell>
+                <TableCell colSpan={isLeader ? 10 : 9}>За выбранный период отчетов пока нет</TableCell>
               </TableRow>
             )}
           </TableBody>

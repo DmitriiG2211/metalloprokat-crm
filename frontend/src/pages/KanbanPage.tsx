@@ -1,4 +1,4 @@
-import { Add, Archive, Block, DragIndicator, Inventory2, Mail, Phone, Search, Sync, ViewKanban } from "@mui/icons-material";
+import { Add, Archive, Block, Delete, DragIndicator, Inventory2, Mail, Phone, Search, Sync, ViewKanban } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -191,6 +191,14 @@ export function KanbanPage() {
   const updateRequest = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: KanbanStatus }) => (await api.patch<KanbanRequest>(`/kanban/requests/${id}`, { status })).data,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kanban-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["kanban-archive"] });
+    }
+  });
+  const deleteRequest = useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/kanban/requests/${id}`)).data,
+    onSuccess: () => {
+      setSelectedRequest(null);
       queryClient.invalidateQueries({ queryKey: ["kanban-requests"] });
       queryClient.invalidateQueries({ queryKey: ["kanban-archive"] });
     }
@@ -442,6 +450,18 @@ export function KanbanPage() {
               </Stack>
             </DialogContent>
             <DialogActions>
+              {canSeeManagers && (
+                <Button
+                  color="error"
+                  startIcon={<Delete />}
+                  onClick={() => {
+                    if (window.confirm("Удалить kanban-заявку?")) deleteRequest.mutate(selectedRequest.id);
+                  }}
+                  disabled={deleteRequest.isPending}
+                >
+                  Удалить
+                </Button>
+              )}
               <Button onClick={() => setSelectedRequest(null)}>Закрыть</Button>
             </DialogActions>
           </>

@@ -1,4 +1,4 @@
-import { AddTask, CalendarMonth, CheckCircle, Search, Tune } from "@mui/icons-material";
+import { AddTask, CalendarMonth, CheckCircle, Delete, Search, Tune } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { api } from "../api";
 import { PageHeader } from "../components/PageHeader";
 import { managerDisplayName } from "../display";
@@ -62,8 +63,11 @@ const formatDateTime = (value?: string | null) => {
 
 export function TasksPage() {
   const queryClient = useQueryClient();
+  const { user } = useOutletContext<{ user: User }>();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyTaskForm);
+  const [completeTask, setCompleteTask] = useState<Task | null>(null);
+  const [managerComment, setManagerComment] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
@@ -71,6 +75,7 @@ export function TasksPage() {
   const [deadlineFilter, setDeadlineFilter] = useState("");
   const { data: tasks = [] } = useQuery({ queryKey: ["tasks"], queryFn: async () => (await api.get<Task[]>("/tasks")).data });
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: async () => (await api.get<User[]>("/users")).data, retry: false });
+  const canDeleteTasks = ["admin", "director", "senior_manager"].includes(user.role);
 
   const managers = useMemo(() => users.filter((user) => user.role === "manager"), [users]);
   const filteredTasks = useMemo(() => {
@@ -96,12 +101,36 @@ export function TasksPage() {
     }
   });
   const complete = useMutation({
-    mutationFn: async (id: number) => (await api.post(`/tasks/${id}/complete`)).data,
+    mutationFn: async ({ id, manager_comment }: { id: number; manager_comment?: string }) => (await api.post(`/tasks/${id}/complete`, { manager_comment })).data,
+    onSuccess: () => {
+      setCompleteTask(null);
+      setManagerComment("");
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
+  });
+  const deleteTask = useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/tasks/${id}`)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] })
   });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     create.mutate();
+  };
+
+  const openCompleteDialog = (task: Task) => {
+    setCompleteTask(task);
+    setManagerComment(task.manager_comment || "");
+  };
+
+  const submitComplete = () => {
+    if (!completeTask) return;
+    complete.mutate({ id: completeTask.id, manager_comment: managerComment });
+  };
+
+  const removeTask = (task: Task) => {
+    if (window.confirm(`Удалить задачу "${task.title}"?`)) {
+      deleteTask.mutate(task.id);
+    }
   };
 
   return (
@@ -161,12 +190,17 @@ export function TasksPage() {
               {filteredTasks.map((task) => (
                 <TableRow key={task.id}>
                   <TableCell padding="checkbox">
-                    <Checkbox checked={task.status === "done"} disabled={task.status === "done"} onChange={() => complete.mutate(task.id)} />
+                    <Checkbox checked={task.status === "done"} disabled={task.status === "done"} onChange={() => openCompleteDialog(task)} />
                   </TableCell>
                   <TableCell sx={{ minWidth: 320 }}>
                     <Stack spacing={0.35}>
                       <Typography fontWeight={850} variant="body2">{task.title}</Typography>
                       {task.description && <Typography color="text.secondary" variant="body2" className="reference-task-description">{task.description}</Typography>}
+                      {task.manager_comment && (
+                        <Typography color="text.secondary" variant="body2" className="reference-task-description">
+                          Комментарий менеджера: {task.manager_comment}
+                        </Typography>
+                      )}
                     </Stack>
                   </TableCell>
                   <TableCell>{task.client?.company_name || "Без клиента"}</TableCell>
@@ -183,8 +217,13 @@ export function TasksPage() {
                   <TableCell>{formatDateTime(task.completed_at)}</TableCell>
                   <TableCell align="right">
                     {task.status !== "done" && (
-                      <Button size="small" startIcon={<CheckCircle />} onClick={() => complete.mutate(task.id)}>
+                      <Button size="small" startIcon={<CheckCircle />} onClick={() => openCompleteDialog(task)}>
                         Выполнить
+                      </Button>
+                    )}
+                    {canDeleteTasks && (
+                      <Button size="small" color="error" startIcon={<Delete />} onClick={() => removeTask(task)} disabled={deleteTask.isPending}>
+                        Удалить
                       </Button>
                     )}
                   </TableCell>
@@ -230,6 +269,28 @@ export function TasksPage() {
           <Button onClick={() => setOpen(false)}>Отмена</Button>
           <Button form="task-form" type="submit" variant="contained">
             Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={Boolean(completeTask)} onClose={() => setCompleteTask(null)} fullWidth maxWidth="sm" PaperProps={{ className: "glass-surface", sx: { borderRadius: "12px" } }}>
+        <DialogTitle>Выполнить задачу</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ pt: 1 }}>
+            <Typography fontWeight={900}>{completeTask?.title}</Typography>
+            <TextField
+              label="Комментарий менеджера"
+              value={managerComment}
+              onChange={(event) => setManagerComment(event.target.value)}
+              multiline
+              minRows={3}
+              placeholder="Что сделано, результат, что важно знать руководителю"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompleteTask(null)}>Отмена</Button>
+          <Button variant="contained" startIcon={<CheckCircle />} onClick={submitComplete} disabled={complete.isPending}>
+            Выполнить
           </Button>
         </DialogActions>
       </Dialog>

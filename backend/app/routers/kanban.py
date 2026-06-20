@@ -115,6 +115,20 @@ def update_request(request_id: int, payload: KanbanRequestUpdate, request: Reque
     return item
 
 
+@router.delete("/requests/{request_id}")
+def delete_request(request_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not can_view_all(user):
+        raise HTTPException(403, "Удаление kanban-заявок доступно только руководителю")
+    item = db.get(KanbanRequest, request_id)
+    if not item:
+        raise HTTPException(404, "Заявка не найдена")
+    db.delete(item)
+    ip, agent = request_meta(request)
+    write_audit(db, user, "delete_kanban_request", "kanban_request", request_id, ip_address=ip, user_agent=agent)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/blacklist", response_model=list[SupplierBlacklistRead])
 def list_blacklist(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     return db.scalars(select(SupplierBlacklist).order_by(SupplierBlacklist.supplier_name.asc())).all()

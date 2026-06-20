@@ -1,5 +1,5 @@
 import { ManageAccounts, Person, SupervisorAccount } from "@mui/icons-material";
-import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Paper, Stack, TextField, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [loadingLogin, setLoadingLogin] = useState("");
+  const [leaderPassword, setLeaderPassword] = useState("");
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["login-options"],
     queryFn: async () => (await api.get<User[]>("/auth/login-options")).data,
@@ -29,11 +30,15 @@ export function LoginPage() {
     .slice(0, 1);
   const managers = users.filter((user) => user.role === "manager");
 
-  const quickLogin = async (login: string) => {
+  const quickLogin = async (login: string, isLeader = false) => {
+    if (isLeader && leaderPassword !== "12345678") {
+      setError("Введите пароль руководителя");
+      return;
+    }
     setLoadingLogin(login);
     setError("");
     try {
-      const { data } = await api.post("/auth/quick-login", { login });
+      const { data } = await api.post("/auth/quick-login", { login, leader_password: isLeader ? leaderPassword : undefined });
       localStorage.setItem("crm_token", data.access_token);
       navigate("/");
     } catch (err) {
@@ -80,13 +85,22 @@ export function LoginPage() {
                     type="button"
                     className="glass-button login-choice-button"
                     startIcon={<SupervisorAccount />}
-                    onClick={() => quickLogin(user.login)}
+                    onClick={() => quickLogin(user.login, true)}
                     disabled={Boolean(loadingLogin)}
                   >
                     <span>{userLabel(user)}</span>
                   </Button>
                 ))}
               </Box>
+              <TextField
+                type="password"
+                size="small"
+                label="Пароль руководителя"
+                value={leaderPassword}
+                onChange={(event) => setLeaderPassword(event.target.value)}
+                sx={{ mt: 1.25 }}
+                fullWidth
+              />
             </Box>
 
             <Box>

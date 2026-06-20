@@ -5,9 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.deps import can_view_all, get_current_user
+from app.deps import can_view_all, get_current_user, request_meta
 from app.models import DailyReport, Role, User
-from app.schemas import DailyReportRead, DailyReportSummaryRow, DailyReportUpsert
+from app.schemas import BulkDeleteRequest, DailyReportRead, DailyReportSummaryRow, DailyReportUpsert
 from app.services.audit import write_audit
 
 router = APIRouter(prefix="/daily-reports", tags=["Daily reports"])
@@ -58,6 +58,23 @@ def list_daily_reports(
     if date_to:
         stmt = stmt.where(DailyReport.report_date <= date_to)
     return db.scalars(stmt.order_by(DailyReport.report_date.desc(), DailyReport.updated_at.desc())).all()
+
+
+@router.post("/bulk-delete")
+def bulk_delete_daily_reports(payload: BulkDeleteRequest, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not can_view_all(user):
+        raise HTTPException(status_code=403, detail="Удаление отчетов доступно только руководителю")
+    if not payload.delete_all and not payload.ids:
+        raise HTTPException(status_code=422, detail="Выберите отчеты для удаления")
+
+    query = db.query(DailyReport)
+    if not payload.delete_all:
+        query = query.filter(DailyReport.id.in_(payload.ids))
+    deleted = query.delete(synchronize_session=False)
+    ip, agent = request_meta(request)
+    write_audit(db, user, "bulk_delete_daily_reports", "daily_report", None, new_value={"count": deleted, "delete_all": payload.delete_all}, ip_address=ip, user_agent=agent)
+    db.commit()
+    return {"ok": True, "deleted": deleted}
 
 
 @router.get("/my", response_model=DailyReportRead | None)
