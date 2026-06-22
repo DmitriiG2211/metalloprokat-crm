@@ -1,4 +1,4 @@
-import { Add, Delete, Download, ExpandMore, History, Phone, Search } from "@mui/icons-material";
+import { Add, Delete, Download, ExpandMore, History, OpenInNew, Phone, Search } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -203,6 +203,28 @@ function CompanyCell({ client, onSave, onHistory }: { client: Client; onSave: (v
   );
 }
 
+function normalizeWebsiteHref(value?: string | null) {
+  const text = (value || "").trim();
+  if (!text) return "";
+  return /^https?:\/\//i.test(text) ? text : `https://${text}`;
+}
+
+function WebsiteCell({ value, onSave }: { value?: string | null; onSave: (value: string) => void }) {
+  const href = normalizeWebsiteHref(value);
+  return (
+    <Box className="website-cell">
+      <EditableCell width="100%" value={value} onSave={onSave} />
+      {href && (
+        <Tooltip title="Открыть сайт">
+          <IconButton className="website-open-button" size="small" href={href} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+            <OpenInNew sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
 function CommentCell({ value, onSave }: { value?: string | null; onSave: (value: string) => void }) {
   const [draft, setDraft] = useState(value || "");
   const [templateAnchor, setTemplateAnchor] = useState<HTMLButtonElement | null>(null);
@@ -339,6 +361,11 @@ function MobileClientCard({
             <Typography className="mobile-field-label" variant="caption">Почта</Typography>
             <ContactCell value={client.email} kind="email" onSave={(value) => saveField(client, { email: value })} />
           </Box>
+        </Box>
+
+        <Box>
+          <Typography className="mobile-field-label" variant="caption">Сайт</Typography>
+          <WebsiteCell value={client.website} onSave={(value) => saveField(client, { website: value })} />
         </Box>
 
         <Box>
@@ -631,22 +658,36 @@ export function ClientsPage() {
       {isDesktop ? (
         <Paper className="desktop-table glass-surface excel-sheet" sx={{ borderRadius: "8px", overflow: "hidden" }} elevation={0}>
           <Table size="small" className="premium-table excel-table">
+            <colgroup>
+              {canSeeManagers && <col style={{ width: 38 }} />}
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "28%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "6%" }} />
+            </colgroup>
             <TableHead>
               <TableRow>
                 {canSeeManagers && (
-                  <TableCell padding="checkbox" sx={{ width: 42 }}>
+                  <TableCell padding="checkbox">
                     <Checkbox checked={allVisibleSelected} indeterminate={selectedVisibleCount > 0 && !allVisibleSelected} onChange={toggleVisibleClients} />
                   </TableCell>
                 )}
-                <TableCell sx={{ width: "15%" }}>Компания</TableCell>
-                <TableCell sx={{ width: "9%" }}>ФИО</TableCell>
-                <TableCell sx={{ width: "13%" }}>Телефон</TableCell>
-                <TableCell sx={{ width: "13%" }}>Почта</TableCell>
-                <TableCell sx={{ width: "8%" }}>Статус</TableCell>
-                <TableCell sx={{ width: "19%" }}>Комментарий</TableCell>
-                <TableCell sx={{ width: "7%" }}>Звонок</TableCell>
-                <TableCell sx={{ width: "8%" }}>Перезвон</TableCell>
-                <TableCell sx={{ width: "5%" }}>Менеджер</TableCell>
+                <TableCell>Компания</TableCell>
+                <TableCell>ФИО</TableCell>
+                <TableCell>Телефон</TableCell>
+                <TableCell>Почта</TableCell>
+                <TableCell>Сайт</TableCell>
+                <TableCell>Статус</TableCell>
+                <TableCell>Комментарий</TableCell>
+                <TableCell>Звонок</TableCell>
+                <TableCell>Перезвон</TableCell>
+                <TableCell>Менеджер</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -657,19 +698,22 @@ export function ClientsPage() {
                       <Checkbox checked={selectedClientIds.includes(client.id)} onChange={() => toggleClient(client.id)} />
                     </TableCell>
                   )}
-                  <ExcelCell width="15%">
+                  <ExcelCell width="12%">
                     <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => setHistoryClient(client)} />
                   </ExcelCell>
-                  <ExcelCell width="9%">
+                  <ExcelCell width="7%">
                     <EditableCell width="100%" value={client.contact_person} onSave={(value) => saveField(client, { contact_person: value })} />
                   </ExcelCell>
-                  <ExcelCell width="13%">
+                  <ExcelCell width="10%">
                     <ContactCell value={client.phone} kind="phone" onSave={(value) => saveField(client, { phone: value })} />
                   </ExcelCell>
-                  <ExcelCell width="13%">
+                  <ExcelCell width="10%">
                     <ContactCell value={client.email} kind="email" onSave={(value) => saveField(client, { email: value })} />
                   </ExcelCell>
                   <ExcelCell width="8%">
+                    <WebsiteCell value={client.website} onSave={(value) => saveField(client, { website: value })} />
+                  </ExcelCell>
+                  <ExcelCell width="6%">
                     <TextField
                       className="excel-input"
                       select
@@ -686,16 +730,16 @@ export function ClientsPage() {
                       ))}
                     </TextField>
                   </ExcelCell>
-                  <ExcelCell width="19%">
+                  <ExcelCell width="28%">
                     <CommentCell value={client.last_comment} onSave={(value) => addComment.mutate({ id: client.id, comment: value })} />
                   </ExcelCell>
-                  <ExcelCell width="7%">
+                  <ExcelCell width="6%">
                     <EditableCell width="100%" type="date" value={client.last_call_date || ""} onSave={(value) => saveField(client, { last_call_date: value })} />
                   </ExcelCell>
-                  <ExcelCell width="8%">
+                  <ExcelCell width="7%">
                     <EditableCell width="100%" type="date" value={client.next_call_date || ""} onSave={(value) => saveField(client, { next_call_date: value })} />
                   </ExcelCell>
-                  <ExcelCell width="5%">
+                  <ExcelCell width="6%">
                     <Typography variant="body2" sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis" }}>
                       {managerDisplayName(client.manager)}
                     </Typography>
@@ -704,7 +748,7 @@ export function ClientsPage() {
               ))}
               {!isFetching && data?.items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={canSeeManagers ? 10 : 9}>Клиенты не найдены</TableCell>
+                  <TableCell colSpan={canSeeManagers ? 11 : 10}>Клиенты не найдены</TableCell>
                 </TableRow>
               )}
             </TableBody>

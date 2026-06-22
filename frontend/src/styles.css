@@ -591,56 +591,6 @@ a {
   height: 54px;
 }
 
-.excel-table th:nth-child(1),
-.excel-table td:nth-child(1) {
-  width: 16% !important;
-  max-width: 16% !important;
-}
-
-.excel-table th:nth-child(2),
-.excel-table td:nth-child(2) {
-  width: 6% !important;
-  max-width: 6% !important;
-}
-
-.excel-table th:nth-child(3),
-.excel-table td:nth-child(3),
-.excel-table th:nth-child(4),
-.excel-table td:nth-child(4) {
-  width: 10.5% !important;
-  max-width: 10.5% !important;
-}
-
-.excel-table th:nth-child(5),
-.excel-table td:nth-child(5) {
-  width: 9% !important;
-  max-width: 9% !important;
-}
-
-.excel-table th:nth-child(6),
-.excel-table td:nth-child(6) {
-  width: 23% !important;
-  max-width: 23% !important;
-}
-
-.excel-table th:nth-child(7),
-.excel-table td:nth-child(7) {
-  width: 6% !important;
-  max-width: 6% !important;
-}
-
-.excel-table th:nth-child(8),
-.excel-table td:nth-child(8) {
-  width: 8% !important;
-  max-width: 8% !important;
-}
-
-.excel-table th:nth-child(9),
-.excel-table td:nth-child(9) {
-  width: 11% !important;
-  max-width: 11% !important;
-}
-
 .excel-table th,
 .excel-table td {
   border-right: 1px solid rgba(42, 68, 72, 0.08);
@@ -730,7 +680,7 @@ a {
   box-shadow: none !important;
 }
 
-.excel-table td:nth-child(1) .excel-input .MuiInputBase-root {
+.company-cell .excel-input .MuiInputBase-root {
   font-size: 13.5px;
   font-weight: 850;
   line-height: 1.28;
@@ -1906,7 +1856,7 @@ a {
   height: 44px;
 }
 
-.excel-table td:nth-child(1) .excel-input .MuiInputBase-root {
+.company-cell .excel-input .MuiInputBase-root {
   color: #111827;
   font-size: 14px;
   font-weight: 900;
@@ -1924,9 +1874,26 @@ a {
 
 .contact-more-button.MuiButton-root,
 .comment-template-button.MuiButton-root,
-.company-history-button.MuiIconButton-root {
+.company-history-button.MuiIconButton-root,
+.website-open-button.MuiIconButton-root {
   color: var(--accent-strong);
   background: #eaf2ff;
+}
+
+.website-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 3px;
+  align-items: start;
+  min-width: 0;
+}
+
+.website-open-button.MuiIconButton-root {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  color: var(--accent-strong);
+  background: rgba(229, 242, 255, 0.72);
 }
 
 .reminders-table th:nth-child(1),
@@ -2286,6 +2253,12 @@ a {
   grid-template-columns: minmax(280px, 1.15fr) minmax(280px, 0.9fr) minmax(260px, 0.75fr);
   gap: 18px;
   align-items: stretch;
+}
+
+.import-mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
 }
 
 .reference-upload-zone,

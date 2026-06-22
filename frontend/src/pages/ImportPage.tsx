@@ -22,6 +22,17 @@ import { PageHeader } from "../components/PageHeader";
 import { managerDisplayName } from "../display";
 import { ImportJob, ImportRollbackResult, User } from "../types";
 
+const mappingFields = [
+  ["company_name", "Компания / наименование клиента"],
+  ["contact_person", "Контактное лицо"],
+  ["phone", "Телефон"],
+  ["email", "Почта"],
+  ["website", "Сайт"],
+  ["comment", "Комментарий"],
+  ["last_call_date", "Дата звонка"],
+  ["next_call_date", "Дата перезвона"]
+] as const;
+
 const formatDateTime = (value?: string | null) => {
   if (!value) return "";
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
@@ -32,6 +43,7 @@ export function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [managerId, setManagerId] = useState("");
   const [preview, setPreview] = useState<any>(null);
+  const [mapping, setMapping] = useState<Record<string, string | null>>({});
   const [result, setResult] = useState<any>(null);
   const [rollbackResult, setRollbackResult] = useState<ImportRollbackResult | null>(null);
   const [error, setError] = useState("");
@@ -57,7 +69,9 @@ export function ImportPage() {
     const form = new FormData();
     form.append("file", file);
     try {
-      setPreview((await api.post("/import/preview", form)).data);
+      const data = (await api.post("/import/preview", form)).data;
+      setPreview(data);
+      setMapping(data.mapping || {});
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -70,7 +84,7 @@ export function ImportPage() {
     const form = new FormData();
     form.append("file", file);
     form.append("assigned_manager_id", managerId);
-    form.append("mapping_json", JSON.stringify(preview?.mapping || {}));
+    form.append("mapping_json", JSON.stringify(mapping || preview?.mapping || {}));
     try {
       setResult((await api.post("/import/confirm", form)).data);
       queryClient.invalidateQueries({ queryKey: ["imports"] });
@@ -149,9 +163,25 @@ export function ImportPage() {
             </Box>
             <Chip label={`Колонок: ${preview.columns.length}`} />
           </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Сопоставление колонок: {Object.entries(preview.mapping).map(([key, value]) => `${key}: ${value || "не найдено"}`).join(", ")}
-          </Typography>
+          <Box className="import-mapping-grid" sx={{ mb: 2 }}>
+            {mappingFields.map(([key, label]) => (
+              <TextField
+                key={key}
+                select
+                size="small"
+                label={label}
+                value={mapping[key] || ""}
+                onChange={(event) => setMapping((current) => ({ ...current, [key]: event.target.value || null }))}
+              >
+                <MenuItem value="">Не использовать</MenuItem>
+                {preview.columns.map((column: string) => (
+                  <MenuItem key={`${key}-${column}`} value={column}>
+                    {column}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ))}
+          </Box>
           <div className="table-scroll">
             <Table size="small" className="premium-table">
               <TableHead>

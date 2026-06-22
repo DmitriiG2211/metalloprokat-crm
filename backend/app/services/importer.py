@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from typing import Any
+import re
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
@@ -19,9 +20,16 @@ FIELD_ALIASES = {
     "company_name": [
         "компания",
         "название компании",
+        "название клиента",
         "организация",
         "наименование",
+        "наименование клиента",
+        "наименование контрагента",
+        "наименование покупателя",
         "клиент",
+        "контрагент",
+        "покупатель",
+        "заказчик",
         "наименование организации",
         "company",
         "company name",
@@ -29,24 +37,68 @@ FIELD_ALIASES = {
         "client",
     ],
     "contact_person": ["фио", "контактное лицо", "представитель", "имя", "фио клиента"],
-    "phone": ["телефон", "номер телефона", "мобильный", "контактный телефон", "phone"],
-    "email": ["почта", "email", "e-mail", "электронная почта", "mail"],
-    "website": ["сайт", "website", "url", "ссылка", "ссылка на сайт"],
+    "phone": ["телефон", "номер телефона", "мобильный", "контактный телефон", "phone", "phone number", "tel"],
+    "email": ["почта", "email", "e-mail", "электронная почта", "mail", "эл. почта"],
+    "website": ["сайт", "web", "website", "url", "ссылка", "ссылка на сайт", "адрес сайта", "интернет", "site"],
     "comment": ["комментарий", "итог звонка", "примечание", "заметка", "результат", "comment", "note", "result"],
     "last_call_date": ["дата звонка", "последний звонок", "когда звонили", "дата первичного звонка", "дата повторного звонка"],
     "next_call_date": ["дата перезвона", "перезвонить", "следующий звонок", "дата следующего звонка"],
 }
+
+GENERIC_LINK_TEXT = {"сайт", "link", "url", "website", "web", "перейти", "открыть"}
+
+
+def _normalize_header(value: object) -> str:
+    text = str(value or "").strip().lower()
+    text = text.replace("ё", "е")
+    return re.sub(r"[\s_./\\\-:;№#()]+", " ", text).strip()
+
+
+def _looks_like_email(value: object) -> bool:
+    return "@" in str(value or "")
+
+
+def _looks_like_website(value: object) -> bool:
+    text = str(value or "").strip().lower()
+    if not text:
+        return False
+    return text.startswith(("http://", "https://", "www.")) or bool(re.search(r"\b[a-zа-я0-9-]+\.(ru|рф|com|net|org|su|biz|info)\b", text))
+
+
+def _looks_like_phone(value: object) -> bool:
+    return len(normalize_phone(str(value or "")) or "") >= 7
+
+
+def _looks_like_date(value: object) -> bool:
+    return parse_date(value) is not None
+
+
+def _looks_like_company(value: object) -> bool:
+    text = str(value or "").strip()
+    if len(text) < 3:
+        return False
+    if _looks_like_phone(text) or _looks_like_email(text) or _looks_like_website(text) or _looks_like_date(text):
+        return False
+    if re.fullmatch(r"[\d\s.,+-]+", text):
+        return False
+    company_markers = ("ооо", "ип ", "ао ", "оао", "зао", "пао", "пкф", "тд ", "тк ", "металл", "строй", "снаб", "производ")
+    lower = text.lower()
+    return any(marker in lower for marker in company_markers) or bool(re.search(r"[а-яА-Яa-zA-Z]{4,}", text))
 
 
 def _read_dataframe(raw: bytes, name: str) -> pd.DataFrame:
     try:
         if name.endswith(".csv"):
             try:
-                return pd.read_csv(BytesIO(raw), dtype=object)
+                df = pd.read_csv(BytesIO(raw), dtype=object)
             except UnicodeDecodeError:
-                return pd.read_csv(BytesIO(raw), dtype=object, encoding="cp1251")
+                df = pd.read_csv(BytesIO(raw), dtype=object, encoding="cp1251")
+            df.columns = [str(column) for column in df.columns]
+            return df
         if name.endswith((".xlsx", ".xls")):
-            return pd.read_excel(BytesIO(raw), dtype=object)
+            df = pd.read_excel(BytesIO(raw), dtype=object)
+            df.columns = [str(column) for column in df.columns]
+            return df
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Не удалось прочитать файл: {exc}") from exc
     raise HTTPException(status_code=400, detail="Поддерживаются только .xlsx, .xls и .csv")
@@ -104,33 +156,108 @@ def _detect_row_statuses(raw: bytes, name: str) -> dict[int, str]:
     return statuses
 
 
+def _detect_cell_hyperlinks(raw: bytes, name: str) -> dict[int, dict[int, str]]:
+    if not name.endswith((".xlsx", ".xlsm")):
+        return {}
+    links: dict[int, dict[int, str]] = {}
+    try:
+        workbook = load_workbook(BytesIO(raw), data_only=True, read_only=False)
+    except Exception:
+        return links
+    sheet = workbook.active
+    for row in sheet.iter_rows(min_row=2):
+        for zero_based_index, cell in enumerate(row):
+            target = getattr(cell.hyperlink, "target", None) if cell.hyperlink else None
+            if target:
+                links.setdefault(cell.row, {})[zero_based_index] = str(target).strip()
+    return links
+
+
 async def read_upload(file: UploadFile) -> pd.DataFrame:
     raw = await file.read()
     name = (file.filename or "").lower()
     return _read_dataframe(raw, name)
 
 
-async def read_upload_with_row_statuses(file: UploadFile) -> tuple[pd.DataFrame, dict[int, str]]:
+async def read_upload_with_row_statuses(file: UploadFile) -> tuple[pd.DataFrame, dict[int, str], dict[int, dict[int, str]]]:
     raw = await file.read()
     name = (file.filename or "").lower()
-    return _read_dataframe(raw, name), _detect_row_statuses(raw, name)
+    return _read_dataframe(raw, name), _detect_row_statuses(raw, name), _detect_cell_hyperlinks(raw, name)
 
 
 def detect_mapping(columns: list[str]) -> dict[str, str | None]:
-    normalized_columns = {str(column).strip().lower(): column for column in columns}
+    normalized_columns = {_normalize_header(column): column for column in columns}
     mapping: dict[str, str | None] = {}
     for field, aliases in FIELD_ALIASES.items():
         found = None
+        normalized_aliases = [_normalize_header(alias) for alias in aliases]
         for alias in aliases:
-            if alias in normalized_columns:
-                found = normalized_columns[alias]
+            normalized_alias = _normalize_header(alias)
+            if normalized_alias in normalized_columns:
+                found = normalized_columns[normalized_alias]
                 break
         if not found:
             for normalized, original in normalized_columns.items():
-                if any(alias in normalized for alias in aliases):
+                if any(alias and alias in normalized for alias in normalized_aliases):
                     found = original
                     break
         mapping[field] = found
+    return mapping
+
+
+def _sample_values(df: pd.DataFrame, column: str) -> list[object]:
+    return [value for value in df[column].head(80).tolist() if not pd.isna(value)]
+
+
+def _infer_column_by_values(df: pd.DataFrame, field: str, used: set[str]) -> str | None:
+    best_column: str | None = None
+    best_score = 0.0
+    for position, column in enumerate(df.columns):
+        column_name = str(column)
+        if column_name in used:
+            continue
+        values = _sample_values(df, column_name)
+        if not values:
+            continue
+        checks = {
+            "phone": _looks_like_phone,
+            "email": _looks_like_email,
+            "website": _looks_like_website,
+            "last_call_date": _looks_like_date,
+            "next_call_date": _looks_like_date,
+            "company_name": _looks_like_company,
+        }
+        check = checks.get(field)
+        if not check:
+            continue
+        matched = sum(1 for value in values if check(value))
+        score = matched / max(1, len(values))
+        if field == "company_name":
+            header = _normalize_header(column_name)
+            if any(alias in header for alias in ("клиент", "компания", "контрагент", "организация", "наименование")):
+                score += 0.55
+            if position == 1:
+                score += 0.1
+            if any(_looks_like_phone(value) or _looks_like_email(value) or _looks_like_website(value) for value in values):
+                score -= 0.35
+        if field == "website" and any(_looks_like_website(value) for value in values):
+            score += 0.25
+        if score > best_score:
+            best_score = score
+            best_column = column_name
+    threshold = 0.15 if field == "company_name" else 0.2
+    return best_column if best_score >= threshold else None
+
+
+def detect_mapping_from_dataframe(df: pd.DataFrame) -> dict[str, str | None]:
+    mapping = detect_mapping([str(column) for column in df.columns])
+    used = {column for column in mapping.values() if column}
+    for field in ("phone", "email", "website", "company_name"):
+        if not mapping.get(field):
+            inferred = _infer_column_by_values(df, field, used)
+            if inferred:
+                mapping[field] = inferred
+                used.add(inferred)
     return mapping
 
 
@@ -139,7 +266,7 @@ def preview_dataframe(df: pd.DataFrame, filename: str) -> dict[str, Any]:
     return {
         "filename": filename,
         "columns": [str(column) for column in df.columns],
-        "mapping": detect_mapping([str(column) for column in df.columns]),
+        "mapping": detect_mapping_from_dataframe(df),
         "preview_rows": df.head(20).where(pd.notnull(df), None).to_dict(orient="records"),
         "total_rows": int(len(df)),
     }
@@ -153,6 +280,17 @@ def _get_value(row: pd.Series, mapping: dict[str, str | None], field: str):
     if pd.isna(value):
         return None
     return value
+
+
+def _get_hyperlink(row: pd.Series, row_number: int, mapping: dict[str, str | None], field: str, hyperlinks: dict[int, dict[int, str]]) -> str | None:
+    column = mapping.get(field)
+    if not column or column not in row.index:
+        return None
+    try:
+        column_index = list(row.index).index(column)
+    except ValueError:
+        return None
+    return hyperlinks.get(row_number, {}).get(column_index)
 
 
 def find_duplicate(db: Session, company_name: str, phone: str | None, email: str | None, domain: str | None) -> Client | None:
@@ -205,11 +343,15 @@ def import_dataframe(
     assigned_manager_id: int,
     mapping: dict[str, str | None] | None = None,
     row_statuses: dict[int, str] | None = None,
+    cell_hyperlinks: dict[int, dict[int, str]] | None = None,
 ) -> ImportJob:
-    mapping = mapping or detect_mapping([str(column) for column in df.columns])
+    detected_mapping = detect_mapping_from_dataframe(df)
+    supplied_mapping = {key: (value or None) for key, value in (mapping or {}).items()}
+    mapping = {**detected_mapping, **{key: value for key, value in supplied_mapping.items() if value}}
     default_status = db.scalars(select(Status).where(Status.is_active.is_(True)).order_by(Status.sort_order)).first()
     status_ids = {status.name.casefold(): status.id for status in db.scalars(select(Status).where(Status.is_active.is_(True))).all()}
     row_statuses = row_statuses or {}
+    cell_hyperlinks = cell_hyperlinks or {}
     job = ImportJob(filename=filename, uploaded_by=uploaded_by.id, assigned_manager_id=assigned_manager_id, status="running")
     db.add(job)
     db.flush()
@@ -237,7 +379,11 @@ def import_dataframe(
         normalized_phone = normalize_phone(phone)
         email = normalize_email(_get_value(row, mapping, "email"))
         first_email = email.splitlines()[0].lower() if email else None
-        website, domain = normalize_website(_get_value(row, mapping, "website"))
+        website_raw = _get_value(row, mapping, "website")
+        website_link = _get_hyperlink(row, row_number, mapping, "website", cell_hyperlinks)
+        if website_link and (not website_raw or str(website_raw).strip().lower() in GENERIC_LINK_TEXT or not _looks_like_website(website_raw)):
+            website_raw = website_link
+        website, domain = normalize_website(website_raw)
         duplicate = (
             normalized_company in existing_companies
             or normalized_company in pending_companies

@@ -18,7 +18,7 @@ router = APIRouter(tags=["Import"])
 
 @router.post("/import/preview", response_model=ImportPreview)
 async def preview(file: UploadFile = File(...), _: User = Depends(require_roles(Role.admin, Role.director)), db: Session = Depends(get_db)):
-    df, _ = await read_upload_with_row_statuses(file)
+    df, _, _ = await read_upload_with_row_statuses(file)
     return preview_dataframe(df, file.filename or "file")
 
 
@@ -32,12 +32,12 @@ async def confirm(
 ):
     if not db.get(User, assigned_manager_id):
         raise HTTPException(404, "Менеджер не найден")
-    df, row_statuses = await read_upload_with_row_statuses(file)
+    df, row_statuses, cell_hyperlinks = await read_upload_with_row_statuses(file)
     try:
         mapping = json.loads(mapping_json) if mapping_json else None
     except JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="Некорректное сопоставление колонок") from exc
-    job = import_dataframe(db, df, file.filename or "file", user, assigned_manager_id, mapping, row_statuses=row_statuses)
+    job = import_dataframe(db, df, file.filename or "file", user, assigned_manager_id, mapping, row_statuses=row_statuses, cell_hyperlinks=cell_hyperlinks)
     db.commit()
     return ImportResult(
         import_id=job.id,
