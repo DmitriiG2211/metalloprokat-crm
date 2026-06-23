@@ -1,0 +1,73 @@
+name: Deploy to Timeweb
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Select reachable SSH port
+        id: ssh-port
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_SSH_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_SSH_USER }}
+          SSH_KEY: ${{ secrets.TIMEWEB_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/timeweb_key
+          chmod 600 ~/.ssh/timeweb_key
+
+          for port in 22 22222; do
+            if ssh \
+              -o BatchMode=yes \
+              -o ConnectTimeout=25 \
+              -o StrictHostKeyChecking=no \
+              -p "$port" \
+              -i ~/.ssh/timeweb_key \
+              "$SSH_USER@$SSH_HOST" "echo ok" >/tmp/ssh_check.out 2>/tmp/ssh_check.err; then
+              echo "port=$port" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Port $port failed:"
+            cat /tmp/ssh_check.err || true
+          done
+
+          echo "No SSH port is reachable"
+          exit 1
+
+      - name: Deploy application
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_SSH_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_SSH_USER }}
+          SSH_PORT: ${{ steps.ssh-port.outputs.port }}
+        run: |
+          set -euo pipefail
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=25 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=8 \
+            -o StrictHostKeyChecking=no \
+            -p "$SSH_PORT" \
+            -i ~/.ssh/timeweb_key \
+            "$SSH_USER@$SSH_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/metalloprokat-crm
+          git fetch origin master
+          git reset --hard origin/master
+          docker compose build web
+          docker compose up -d web
+          docker compose ps
+          curl -fsS http://127.0.0.1:8081/api/health
+          if [ -d gateway ]; then
+            cd gateway
+            docker compose up -d gateway
+            docker compose ps
+          fi
+          REMOTE
