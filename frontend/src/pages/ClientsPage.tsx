@@ -268,8 +268,8 @@ function CommentCell({ value, onSave }: { value?: string | null; onSave: (value:
         onBlur={commit}
         onKeyDown={keyDown}
         multiline
-        minRows={3}
-        maxRows={3}
+        minRows={1}
+        maxRows={5}
         variant="standard"
         fullWidth
         InputProps={{ disableUnderline: true }}

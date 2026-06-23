@@ -588,7 +588,7 @@ a {
 }
 
 .excel-table tbody tr {
-  height: 54px;
+  min-height: 54px;
 }
 
 .excel-table th,
@@ -604,7 +604,8 @@ a {
 .excel-table .MuiTableCell-root {
   font-size: 12px;
   line-height: 1.25;
-  height: 54px;
+  height: auto;
+  min-height: 54px;
   overflow: hidden;
 }
 
@@ -733,14 +734,14 @@ a {
 }
 
 .comment-inline-input .MuiInputBase-root {
-  min-height: 42px;
+  min-height: 30px;
   align-items: flex-start;
 }
 
 .comment-inline-input textarea {
-  height: 36px !important;
-  max-height: 36px !important;
-  overflow: hidden !important;
+  min-height: 18px !important;
+  max-height: 90px !important;
+  overflow-y: auto !important;
   resize: none;
   padding-right: 58px !important;
 }
