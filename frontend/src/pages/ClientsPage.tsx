@@ -193,7 +193,7 @@ function ContactCell({ value, kind, onSave }: { value?: string | null; kind: "ph
 function CompanyCell({ client, onSave, onHistory }: { client: Client; onSave: (value: string) => void; onHistory: () => void }) {
   return (
     <Box className="company-cell">
-      <EditableCell width="100%" value={client.company_name} onSave={onSave} />
+      <EditableCell width="100%" value={client.company_name} multiline onSave={onSave} />
       <Tooltip title="История касаний">
         <IconButton className="company-history-button" size="small" onClick={onHistory}>
           <History sx={{ fontSize: 16 }} />
@@ -207,6 +207,14 @@ function normalizeWebsiteHref(value?: string | null) {
   const text = (value || "").trim();
   if (!text) return "";
   return /^https?:\/\//i.test(text) ? text : `https://${text}`;
+}
+
+function managerNumberLabel(user?: Client["manager"] | null) {
+  if (!user) return "-";
+  if (user.manager_number) return String(user.manager_number);
+  const fallback = user.login || user.full_name || "-";
+  const number = fallback.match(/\d+/)?.[0];
+  return number || fallback;
 }
 
 function WebsiteCell({ value, onSave }: { value?: string | null; onSave: (value: string) => void }) {
@@ -322,15 +330,11 @@ function MobileClientCard({
         <Box className="mobile-card-head">
           <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => openHistory(client)} />
           <Typography variant="caption" sx={{ fontWeight: 900, color: "text.secondary" }}>
-            {managerDisplayName(client.manager)}
+            {managerNumberLabel(client.manager)}
           </Typography>
         </Box>
 
         <Box className="mobile-card-grid">
-          <Box>
-            <Typography className="mobile-field-label" variant="caption">ФИО</Typography>
-            <EditableCell width="100%" value={client.contact_person} onSave={(value) => saveField(client, { contact_person: value })} />
-          </Box>
           <Box>
             <Typography className="mobile-field-label" variant="caption">Статус</Typography>
             <TextField
@@ -660,16 +664,15 @@ export function ClientsPage() {
           <Table size="small" className="premium-table excel-table">
             <colgroup>
               {canSeeManagers && <col style={{ width: 38 }} />}
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "7%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "11%" }} />
               <col style={{ width: "8%" }} />
-              <col style={{ width: "6%" }} />
+              <col style={{ width: "8%" }} />
               <col style={{ width: "28%" }} />
               <col style={{ width: "6%" }} />
               <col style={{ width: "7%" }} />
-              <col style={{ width: "6%" }} />
+              <col style={{ width: "3%" }} />
             </colgroup>
             <TableHead>
               <TableRow>
@@ -679,7 +682,6 @@ export function ClientsPage() {
                   </TableCell>
                 )}
                 <TableCell>Компания</TableCell>
-                <TableCell>ФИО</TableCell>
                 <TableCell>Телефон</TableCell>
                 <TableCell>Почта</TableCell>
                 <TableCell>Сайт</TableCell>
@@ -698,22 +700,19 @@ export function ClientsPage() {
                       <Checkbox checked={selectedClientIds.includes(client.id)} onChange={() => toggleClient(client.id)} />
                     </TableCell>
                   )}
-                  <ExcelCell width="12%">
+                  <ExcelCell width="18%">
                     <CompanyCell client={client} onSave={(value) => saveField(client, { company_name: value })} onHistory={() => setHistoryClient(client)} />
                   </ExcelCell>
-                  <ExcelCell width="7%">
-                    <EditableCell width="100%" value={client.contact_person} onSave={(value) => saveField(client, { contact_person: value })} />
-                  </ExcelCell>
-                  <ExcelCell width="10%">
+                  <ExcelCell width="11%">
                     <ContactCell value={client.phone} kind="phone" onSave={(value) => saveField(client, { phone: value })} />
                   </ExcelCell>
-                  <ExcelCell width="10%">
+                  <ExcelCell width="11%">
                     <ContactCell value={client.email} kind="email" onSave={(value) => saveField(client, { email: value })} />
                   </ExcelCell>
                   <ExcelCell width="8%">
                     <WebsiteCell value={client.website} onSave={(value) => saveField(client, { website: value })} />
                   </ExcelCell>
-                  <ExcelCell width="6%">
+                  <ExcelCell width="8%">
                     <TextField
                       className="excel-input"
                       select
@@ -739,16 +738,16 @@ export function ClientsPage() {
                   <ExcelCell width="7%">
                     <EditableCell width="100%" type="date" value={client.next_call_date || ""} onSave={(value) => saveField(client, { next_call_date: value })} />
                   </ExcelCell>
-                  <ExcelCell width="6%">
+                  <ExcelCell width="3%">
                     <Typography variant="body2" sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {managerDisplayName(client.manager)}
+                      {managerNumberLabel(client.manager)}
                     </Typography>
                   </ExcelCell>
                 </TableRow>
               ))}
               {!isFetching && data?.items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={canSeeManagers ? 11 : 10}>Клиенты не найдены</TableCell>
+                  <TableCell colSpan={canSeeManagers ? 10 : 9}>Клиенты не найдены</TableCell>
                 </TableRow>
               )}
             </TableBody>
