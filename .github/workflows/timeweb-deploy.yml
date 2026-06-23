@@ -64,7 +64,16 @@ jobs:
           docker compose build web
           docker compose up -d web
           docker compose ps
-          curl -fsS http://127.0.0.1:8081/api/health
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8081/api/health; then
+              break
+            fi
+            if [ "$attempt" = 60 ]; then
+              docker compose logs --tail=120 web
+              exit 1
+            fi
+            sleep 2
+          done
           if [ -d gateway ]; then
             cd gateway
             docker compose up -d gateway
